@@ -11,8 +11,11 @@ dotenv.config();
 const app = express();
 
 // CORS configuration
-const allowedOrigin = process.env.FRONTEND_URL || "https://structa-quiz.vercel.app";
-
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://formify-kp.vercel.app',
+  'https://formify-kp.vercel.app/'
+];
 const corsOptions = {
   origin: allowedOrigin,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
