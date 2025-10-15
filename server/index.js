@@ -16,13 +16,21 @@ const allowedOrigins = [
   'https://formify-kp.vercel.app',
   'https://formify-kp.vercel.app/'
 ];
+
 const corsOptions = {
-  origin: allowedOrigin,
+  origin: function (origin, callback) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
   optionsSuccessStatus: 200
 };
+
 
 app.use(cors(corsOptions));
 
