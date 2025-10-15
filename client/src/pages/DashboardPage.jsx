@@ -1,32 +1,15 @@
 // client/src/pages/DashboardPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { FormsContext } from './ProtectedLayout'; // Import the context
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { user } = useUser();
-  const [forms, setForms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { userForms: forms, refetchForms } = useContext(FormsContext); // Consume the context
+  const [loading, setLoading] = useState(false); // Loading is now for actions, not initial fetch
   const [copiedFormId, setCopiedFormId] = useState(null);
-
-  useEffect(() => {
-    if (user) {
-      const fetchUserForms = async () => {
-        try {
-          const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/user/${user.id}`);
-          setForms(response.data);
-        } catch (error) {
-          console.error("Failed to fetch user forms", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchUserForms();
-    }
-  }, [user]);
 
   const handleCreateForm = () => {
     navigate('/editor/new');
@@ -50,7 +33,7 @@ const DashboardPage = () => {
     if (window.confirm(`Are you sure you want to delete "${formTitle}"? This action cannot be undone.`)) {
       try {
         await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
-        setForms(forms.filter(form => form._id !== formId));
+        refetchForms(); // Refetch forms from the parent layout
       } catch (error) {
         console.error("Failed to delete form", error);
         alert("Could not delete the form. Please try again.");

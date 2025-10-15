@@ -1,10 +1,10 @@
-# StructaQuiz MERN Application
+# Formify MERN Application
 
-Welcome to StructaQuiz! This is a full-stack MERN (MongoDB, Express, React, Node.js) application designed for creating, sharing, and taking interactive quizzes with unique and engaging question formats.
+Welcome to Formify! This is a full-stack MERN (MongoDB, Express, React, Node.js) application designed for creating, sharing, and taking interactive quizzes with unique and engaging question formats.
 
 ## 🚀 Features
 
-StructaQuiz goes beyond simple multiple-choice questions to provide a more dynamic assessment experience.
+Formify goes beyond simple multiple-choice questions to provide a more dynamic assessment experience.
 
 ### User & Form Management
 

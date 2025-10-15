@@ -1,15 +1,24 @@
 // src/components/builder/ClozeBuilder.jsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const ClozeBuilder = ({ onSave, onCancel }) => {
+const ClozeBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [options, setOptions] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const passageRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // 👇 This is the fully corrected logic
+  useEffect(() => {
+    if (initialData) {
+        if (passageRef.current) {
+            passageRef.current.innerText = initialData.passage;
+        }
+        setOptions(initialData.options || []);
+        setImagePreview(initialData.image || '');
+    }
+  }, [initialData]);
+
   const handleMakeBlank = () => {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) {
@@ -43,7 +52,6 @@ const ClozeBuilder = ({ onSave, onCancel }) => {
         return newOptions;
     });
 
-    // Reset selection to avoid issues
     selection.removeAllRanges();
   };
   
@@ -61,7 +69,7 @@ const ClozeBuilder = ({ onSave, onCancel }) => {
       return;
     }
 
-    let imageUrl = '';
+    let imageUrl = imagePreview;
     if (imageFile) {
         try {
             const authResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/imagekit/auth`);
@@ -86,10 +94,9 @@ const ClozeBuilder = ({ onSave, onCancel }) => {
   };
 
   return (
-    // ... (The JSX remains the same) ...
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md mt-6 animate-fadeIn">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-xl font-bold text-gray-900">Create Cloze (Fill-in-the-Blanks) Question</h3>
+        <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Edit' : 'Create'} Cloze (Fill-in-the-Blanks) Question</h3>
         {!imagePreview && (
           <>
             <input type="file" ref={fileInputRef} onChange={handleQuestionImageUpload} style={{ display: 'none' }} accept="image/*" />
@@ -105,7 +112,7 @@ const ClozeBuilder = ({ onSave, onCancel }) => {
           <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-md"/>
           <div className="flex-grow">
             <p className="font-semibold text-green-800">Image selected!</p>
-            <p className="text-xs text-gray-500 truncate">{imageFile.name}</p>
+            <p className="text-xs text-gray-500 truncate">{imageFile?.name || ''}</p>
           </div>
           <button onClick={() => { setImagePreview(''); setImageFile(null); }} className="text-red-600 hover:text-red-800 text-xs font-semibold">
             Remove
@@ -123,7 +130,7 @@ const ClozeBuilder = ({ onSave, onCancel }) => {
         className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md text-gray-900 min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
         suppressContentEditableWarning={true}
       >
-        Your sentence with words to be blanked out goes here.
+        {initialData ? '' : 'Your sentence with words to be blanked out goes here.'}
       </div>
 
       <button 

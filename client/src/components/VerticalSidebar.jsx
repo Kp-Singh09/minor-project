@@ -1,9 +1,8 @@
 // src/components/VerticalSidebar.jsx
 import { NavLink, Link, useParams } from "react-router-dom";
-import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
-import axios from 'axios';
+import { useState, useContext } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
+import { FormsContext } from "../pages/ProtectedLayout"; // Import the context
 
 const navItems = [
     { href: "/dashboard", title: "Dashboard", icon: <span>📊</span> },
@@ -14,27 +13,11 @@ const navItems = [
   ];
 
 const VerticalSidebar = () => {
-  const { user } = useUser();
   const { formId } = useParams();
-  const [userForms, setUserForms] = useState([]);
+  const { userForms } = useContext(FormsContext); // Consume the context
   const [isFormsExpanded, setIsFormsExpanded] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      const fetchUserForms = async () => {
-        try {
-          const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/user/${user.id}`);
-          setUserForms(response.data);
-        } catch (error) {
-          console.error("Failed to fetch user forms", error);
-        }
-      };
-      fetchUserForms();
-    }
-  }, [user, formId]);
-
   return (
-    // Palette 2: Using bg-sky-200 for a soft, distinct sidebar
     <aside className="fixed top-0 left-0 w-64 h-full bg-sky-100  z-40 flex flex-col">
       <div className="h-20 flex items-center px-6 border-b border-sky-300/70 flex-shrink-0">
         <Link to="/" className="text-3xl font-bold text-slate-800 drop-shadow-md">
@@ -49,7 +32,6 @@ const VerticalSidebar = () => {
               <NavLink
                 to={item.href}
                 className={({ isActive }) =>
-                  // Updated styles for the new sky-colored sidebar
                   `flex items-center gap-4 px-4 py-3 rounded-lg transition-colors text-lg font-medium ${
                     isActive && !formId
                       ? "bg-sky-500 text-white font-bold shadow-md"

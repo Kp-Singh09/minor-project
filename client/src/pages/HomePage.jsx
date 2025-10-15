@@ -40,7 +40,7 @@ const features = [
 ];
 
 const faqData = [
-    { question: "What is StructaQuiz?", answer: "StructaQuiz is a modern platform for building interactive and engaging quizzes with unique question types like Categorize, Cloze, and Comprehension." },
+    { question: "What is Formify?", answer: "Formify is a modern platform for building interactive and engaging quizzes with unique question types like Categorize, Cloze, and Comprehension." },
     { question: "How do I create a form?", answer: "After signing in, navigate to your dashboard and click the 'Create New Form' button to start building." },
     { question: "Can I add images to my questions?", answer: "Yes, you can upload a header image for the entire form and individual images for each question to make them more visual." },
     { question: "How do I view responses?", answer: "From your dashboard, you can click on 'Responses' in the sidebar to see a list of your forms and view the submissions for each." },
@@ -78,7 +78,7 @@ export default function HomePage() {
               Build Interactive Quizzes That <span className="text-blue-600">Engage</span> and <span className="text-purple-600">Impress</span>
             </h1>
             <p className="mt-6 text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
-              Go beyond simple multiple-choice. With StructaQuiz, you can create dynamic assessments with unique question formats that challenge users and provide deeper insights.
+              Go beyond simple multiple-choice. With Formify, you can create dynamic assessments with unique question formats that challenge users and provide deeper insights.
             </p>
             <Link to={isSignedIn ? "/dashboard" : "/sign-in"}>
                 <motion.button

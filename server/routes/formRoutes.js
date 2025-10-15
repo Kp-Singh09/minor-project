@@ -1,7 +1,15 @@
 // /server/routes/formRoutes.js
 import express from 'express';
-// --- IMPORT THE NEW CONTROLLER ---
-import { createForm, addQuestionToForm, getFormById, updateForm, getFormsByUser, deleteForm } from '../controllers/formController.js';
+import { 
+    createForm, 
+    addQuestionToForm, 
+    getFormById, 
+    updateForm, 
+    getFormsByUser, 
+    deleteForm,
+    updateQuestion,
+    deleteQuestionFromForm
+} from '../controllers/formController.js';
 
 const router = express.Router();
 
@@ -10,6 +18,10 @@ router.post('/', createForm);
 router.get('/:id', getFormById);
 router.put('/:id', updateForm);
 router.post('/:id/questions', addQuestionToForm);
-router.delete('/:id', deleteForm); // --- ADD THIS NEW ROUTE ---
+router.delete('/:id', deleteForm);
+
+// --- NEW ROUTES ---
+router.put('/questions/:questionId', updateQuestion);
+router.delete('/:formId/questions/:questionId', deleteQuestionFromForm);
 
 export default router;

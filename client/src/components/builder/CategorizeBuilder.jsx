@@ -1,17 +1,34 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios'; 
 
-const CategorizeBuilder = ({ onSave, onCancel }) => {
+const CategorizeBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [categories, setCategories] = useState(['Category 1', 'Category 2']);
   const [items, setItems] = useState([{ text: '', category: 'Category 1' }]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    if (initialData) {
+      setCategories(initialData.categories);
+      setItems(initialData.items);
+      setImagePreview(initialData.image || '');
+    }
+  }, [initialData]);
+
   const handleCategoryChange = (index, value) => {
+    const oldCategoryName = categories[index];
     const newCategories = [...categories];
     newCategories[index] = value;
     setCategories(newCategories);
+
+    const updatedItems = items.map(item => {
+      if (item.category === oldCategoryName) {
+        return { ...item, category: value };
+      }
+      return item;
+    });
+    setItems(updatedItems);
   };
 
   const addCategory = () => setCategories([...categories, `Category ${categories.length + 1}`]);
@@ -37,7 +54,7 @@ const CategorizeBuilder = ({ onSave, onCancel }) => {
       return;
     }
 
-    let imageUrl = '';
+    let imageUrl = imagePreview;
 
     if (imageFile) {
         try {
@@ -63,10 +80,9 @@ const CategorizeBuilder = ({ onSave, onCancel }) => {
   };
 
   return (
-
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md mt-6 animate-fadeIn">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-900">Create Categorize Question</h3>
+        <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Edit' : 'Create'} Categorize Question</h3>
         {!imagePreview && (
           <>
             <input type="file" ref={fileInputRef} onChange={handleQuestionImageUpload} style={{ display: 'none' }} accept="image/*" />
@@ -82,7 +98,7 @@ const CategorizeBuilder = ({ onSave, onCancel }) => {
           <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-md"/>
           <div className="flex-grow">
             <p className="font-semibold text-green-800">Image selected!</p>
-            <p className="text-xs text-gray-500 truncate">{imageFile.name}</p>
+            <p className="text-xs text-gray-500 truncate">{imageFile?.name || ''}</p>
           </div>
           <button onClick={() => { setImagePreview(''); setImageFile(null); }} className="text-red-600 hover:text-red-800 text-xs font-semibold">
             Remove
@@ -100,6 +116,7 @@ const CategorizeBuilder = ({ onSave, onCancel }) => {
                     type="text"
                     className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     value={category}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => handleCategoryChange(index, e.target.value)}
                 />
                 ))}

@@ -18,6 +18,7 @@ const FormEditor = () => {
     const [loading, setLoading] = useState(!isNewForm);
     const [error, setError] = useState(null);
     const [activeBuilder, setActiveBuilder] = useState(null);
+    const [editingQuestion, setEditingQuestion] = useState(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [currentTitle, setCurrentTitle] = useState("");
     const [copied, setCopied] = useState(false);
@@ -26,29 +27,30 @@ const FormEditor = () => {
     const hasUnsavedChanges = form && currentTitle !== form.title;
 
     useEffect(() => {
+        const fetchForm = async (id) => {
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${id}`);
+                setForm(response.data);
+                setCurrentTitle(response.data.title);
+            } catch (err) {
+                setError('Failed to fetch form data.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         if (isNewForm) {
             const defaultTitle = 'Untitled Form';
             setForm({ title: defaultTitle, questions: [], headerImage: null });
             setCurrentTitle(defaultTitle);
             setLoading(false);
         } else {
-            const fetchForm = async () => {
-                try {
-                    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
-                    setForm(response.data);
-                    setCurrentTitle(response.data.title);
-                } catch (err) {
-                    setError('Failed to fetch form data.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchForm();
+            fetchForm(formId);
         }
     }, [formId, isNewForm]);
 
     const handleTitleSave = async () => {
-        if (!hasUnsavedChanges) {
+        if (!hasUnsavedChanges && !isNewForm) {
             setIsEditingTitle(false);
             return;
         }
@@ -63,14 +65,12 @@ const FormEditor = () => {
                 navigate(`/editor/${formResponse.data._id}`, { replace: true });
             } else {
                 const response = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: currentTitle });
-                setForm(response.data);
+                setForm(prev => ({ ...prev, title: response.data.title }));
                 setCurrentTitle(response.data.title);
             }
         } catch (err) {
             console.error("Failed to update title", err);
-            if (form) {
-                setCurrentTitle(form.title);
-            }
+            if (form) setCurrentTitle(form.title);
         } finally {
             setIsEditingTitle(false);
         }
@@ -79,6 +79,7 @@ const FormEditor = () => {
     const handleSaveQuestion = async (questionData) => {
         try {
             let currentFormId = formId;
+
             if (isNewForm) {
                 if (!user) throw new Error("User not found");
                 const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, {
@@ -89,16 +90,37 @@ const FormEditor = () => {
                 currentFormId = formResponse.data._id;
                 navigate(`/editor/${currentFormId}`, { replace: true });
             }
+
+            if (editingQuestion) {
+                await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/questions/${editingQuestion._id}`, questionData);
+            } else {
+                await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${currentFormId}/questions`, questionData);
+            }
             
-            await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${currentFormId}/questions`, questionData);
-            
-            const updatedForm = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${currentFormId}`);
+            const updatedForm = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${currentFormId || formId}`);
             setForm(updatedForm.data);
+
             setActiveBuilder(null);
+            setEditingQuestion(null);
 
         } catch (err) {
             alert("Error: Could not save the question.");
             console.error(err);
+        }
+    };
+
+    const handleDeleteQuestion = async (questionId) => {
+        if (window.confirm('Are you sure you want to delete this question? This cannot be undone.')) {
+            try {
+                await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions/${questionId}`);
+                setForm(prevForm => ({
+                    ...prevForm,
+                    questions: prevForm.questions.filter(q => q._id !== questionId)
+                }));
+            } catch (err) {
+                alert('Failed to delete the question. Please try again.');
+                console.error(err);
+            }
         }
     };
   
@@ -157,12 +179,31 @@ const FormEditor = () => {
         }
     };
 
+    const renderBuilder = () => {
+        const type = editingQuestion ? editingQuestion.type.toLowerCase() : activeBuilder;
+        const onCancel = () => {
+            setActiveBuilder(null);
+            setEditingQuestion(null);
+        };
+        const initialData = editingQuestion;
+
+        switch(type) {
+            case 'comprehension':
+                return <ComprehensionBuilder onSave={handleSaveQuestion} onCancel={onCancel} initialData={initialData} />;
+            case 'categorize':
+                return <CategorizeBuilder onSave={handleSaveQuestion} onCancel={onCancel} initialData={initialData} />;
+            case 'cloze':
+                return <ClozeBuilder onSave={handleSaveQuestion} onCancel={onCancel} initialData={initialData} />;
+            default:
+                return null;
+        }
+    }
+
     if (loading) return <div className="p-8 text-center text-xl font-semibold text-gray-600">Loading Editor...</div>;
     if (error) return <div className="p-8 text-center text-xl text-red-500">{error}</div>;
     if (!form) return null;
 
     return (
-        // The max-w-5xl and mx-auto classes have been removed to prevent the "double background"
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,21 +251,22 @@ const FormEditor = () => {
 
             <div className="space-y-6">
                 {form.questions.map((question, index) => (
-                    <div key={question._id || index} className="bg-white p-6 rounded-lg border border-gray-200 shadow-md border-t-4 border-t-blue-400">
-                        <p className="text-lg font-semibold text-gray-800">Question {index + 1}: {question.type}</p>
+                    <div key={question._id} className="bg-white p-6 rounded-lg border border-gray-200 shadow-md">
+                         <div className="flex justify-between items-center">
+                            <p className="text-lg font-semibold text-gray-800">Question {index + 1}: {question.type}</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setEditingQuestion(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
+                                <button onClick={() => handleDeleteQuestion(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
+                            </div>
+                        </div>
                     </div>
                 ))}
             </div>
 
             <div className="mt-10">
-                {activeBuilder ? (
-                    <div>
-                        {activeBuilder === 'comprehension' && <ComprehensionBuilder onSave={handleSaveQuestion} onCancel={() => setActiveBuilder(null)}/>}
-                        {activeBuilder === 'categorize' && <CategorizeBuilder onSave={handleSaveQuestion} onCancel={() => setActiveBuilder(null)}/>}
-                        {activeBuilder === 'cloze' && <ClozeBuilder onSave={handleSaveQuestion} onCancel={() => setActiveBuilder(null)}/>}
-                    </div>
+                {activeBuilder || editingQuestion ? (
+                    renderBuilder()
                 ) : (
-                    // The blue top border has been removed from this dashed container
                     <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-white/50">
                         <h3 className="text-xl font-semibold mb-4 text-gray-800">Add a New Question</h3>
                         <div className="flex justify-center gap-4">
@@ -260,13 +302,6 @@ const FormEditor = () => {
                         className="py-2 px-5 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Preview
-                    </button>
-                    <button
-                        onClick={handleTitleSave}
-                        disabled={!hasUnsavedChanges}
-                        className="py-2 px-5 rounded-lg text-white font-semibold bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Save Changes
                     </button>
                 </div>
             </div>

@@ -3,7 +3,48 @@ import Form from '../models/Form.js';
 import Question from '../models/Question.js';
 import Response from '../models/Response.js'; // Import the Response model
 
-// --- NEW DELETE FUNCTION ---
+// --- NEW ---
+// @desc    Update a question
+// @route   PUT /api/forms/questions/:questionId
+// @access  Private
+export const updateQuestion = async (req, res) => {
+    try {
+        const { questionId } = req.params;
+        const questionData = req.body;
+
+        const updatedQuestion = await Question.findByIdAndUpdate(questionId, questionData, { new: true });
+
+        if (!updatedQuestion) {
+            return res.status(404).json({ message: 'Question not found' });
+        }
+
+        res.status(200).json(updatedQuestion);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error: Could not update question', error });
+    }
+};
+
+// --- NEW ---
+// @desc    Delete a question from a form
+// @route   DELETE /api/forms/:formId/questions/:questionId
+// @access  Private
+export const deleteQuestionFromForm = async (req, res) => {
+    try {
+        const { formId, questionId } = req.params;
+
+        // First, pull the question reference from the form
+        await Form.findByIdAndUpdate(formId, { $pull: { questions: questionId } });
+
+        // Then, delete the question document itself
+        await Question.findByIdAndDelete(questionId);
+
+        res.status(200).json({ message: 'Question deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error: Could not delete question', error });
+    }
+};
+
+
 // @desc    Delete a form and all its associated data
 // @route   DELETE /api/forms/:id
 // @access  Private

@@ -26,7 +26,7 @@ const Header = () => {
       <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
         {/* Updated text color to be dark */}
         <Link to="/" className="text-3xl font-bold text-gray-800 drop-shadow-md">
-          Structa<span className="text-blue-600">Quiz</span>
+          Form<span className="text-blue-600">ify</span>
         </Link>
         <div className="flex items-center gap-6">
           <SignedIn>
