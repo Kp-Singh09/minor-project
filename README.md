@@ -58,8 +58,8 @@ To run this project locally, you will need to have **Node.js** and a local or cl
 
 ### 1\. Clone the Repository
 
-    git clone https://github.com/your-username/structaquiz-project.git
-    cd structaquiz-project
+    git clone https://github.com/your-username/formify.git
+    cd formify-project
     
 
 ### 2\. Backend Setup
