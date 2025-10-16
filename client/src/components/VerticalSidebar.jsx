@@ -21,7 +21,7 @@ const VerticalSidebar = () => {
     <aside className="fixed top-0 left-0 w-64 h-full bg-sky-100  z-40 flex flex-col">
       <div className="h-20 flex items-center px-6 border-b border-sky-300/70 flex-shrink-0">
         <Link to="/" className="text-3xl font-bold text-slate-800 drop-shadow-md">
-          Structa<span className="text-blue-600">Quiz</span>
+          Form<span className="text-blue-600">ify</span>
         </Link>
       </div>
 
