@@ -6,7 +6,6 @@ import { FormsContext } from "../pages/ProtectedLayout"; // Import the context
 
 const navItems = [
     { href: "/dashboard", title: "Dashboard", icon: <span>📊</span> },
-    { href: "/editor/new", title: "Create Form", icon: <span>📄</span> },
     { href: "/responses", title: "Responses", icon: <span>📈</span> },
     { href: "/submissions", title: "My Submissions", icon: <span>✅</span> },
     { href: "/stats", title: "Stats", icon: <span>⭐</span> },
