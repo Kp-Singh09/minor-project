@@ -2,41 +2,37 @@
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { Link } from "react-router-dom";
 import { motion } from 'framer-motion';
-import { useState, useEffect } from "react";
+// We no longer need useState or useEffect
 
-const Header = () => {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+const Header = ({ themeMode = 'light' }) => {
+  // Determine logo color based on the themeMode prop
+  const logoColor = themeMode === 'dark' ? 'text-white' : 'text-gray-800';
 
   return (
     <motion.header 
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
-      // Updated classes for light theme
-      className={`fixed top-0 left-0 w-full z-50 transition-colors duration-300 ${scrolled ? 'bg-[#f8f7f4]/80 backdrop-blur-sm border-b border-gray-200' : 'bg-transparent'}`}
+      // REMOVED: All 'fixed', 'top-0', 'left-0', 'z-50', and scroll-related classes
+      // ADDED: Padding and a bottom border for separation
+      className="w-full z-40 bg-transparent"
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
-        {/* Updated text color to be dark */}
-        <Link to="/" className="text-3xl font-bold text-gray-800 drop-shadow-md">
+        {/* UPDATED: className now uses the dynamic logoColor */}
+        <Link to="/" className={`text-3xl font-bold ${logoColor} drop-shadow-md`}>
           Form<span className="text-blue-600">ify</span>
         </Link>
         <div className="flex items-center gap-6">
           <SignedIn>
-            {/* Updated text color to be dark */}
-            <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+            {/* UPDATED: Text color is now dynamic */}
+            <Link 
+              to="/dashboard" 
+              className={`text-sm font-medium ${themeMode === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors`}
+            >
               Dashboard
             </Link>
           </SignedIn>
           <SignedOut>
-            {/* The glow-btn already looks great */}
             <Link to="/sign-in" className="glow-btn px-5 py-2 text-sm">
               Sign In
             </Link>

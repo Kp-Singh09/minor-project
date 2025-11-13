@@ -3,6 +3,7 @@ import React from 'react';
 
 // --- RENDER FUNCTIONS FOR EACH QUESTION TYPE ---
 
+// (Comprehension, Categorize, and Cloze are unchanged)
 const ComprehensionBreakdown = ({ question, userAnswer }) => (
   <div className="space-y-3">
     {question.mcqs.map((mcq, index) => {
@@ -51,51 +52,138 @@ const ClozeBreakdown = ({ question, userAnswer }) => (
     </div>
 );
 
+// --- NEW: Breakdown for simple choice questions ---
+const SimpleBreakdown = ({ question, userAnswer, isCorrect }) => (
+  <div className="text-sm">
+    <p className={`text-gray-700 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+      <strong>Your Answer:</strong> {userAnswer || "No answer"}
+    </p>
+    {!isCorrect && (
+      <p className="text-green-700 mt-1">
+        <strong>Correct Answer:</strong> {question.correctAnswer}
+      </p>
+    )}
+  </div>
+);
+
+// --- NEW: Breakdown for Checkbox questions ---
+const CheckboxBreakdown = ({ question, userAnswer, isCorrect }) => (
+  <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <p className={`text-gray-700 font-semibold mb-1 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+        Your Answer:
+      </p>
+      <ul className="list-disc pl-5">
+        {(Array.isArray(userAnswer) && userAnswer.length > 0) ? userAnswer.map(a => <li key={a}>{a}</li>) : <li>No answer</li>}
+      </ul>
+    </div>
+    {!isCorrect && (
+      <div>
+        <p className="text-green-700 font-semibold mb-1">
+          Correct Answer:
+        </p>
+        <ul className="list-disc pl-5">
+          {question.correctAnswers.map(a => <li key={a}>{a}</li>)}
+        </ul>
+      </div>
+    )}
+  </div>
+);
+
+// --- NEW: Breakdown for non-scorable questions ---
+const SubmissionOnlyBreakdown = ({ question, userAnswer }) => (
+  <div className="text-sm">
+    <p className="text-gray-700">
+      <strong>Your Submission:</strong> {userAnswer.toString()}
+    </p>
+  </div>
+);
+
+
+// --- Updated AnswerCard Component ---
 const AnswerCard = ({ answerData, index }) => {
   const { questionId, answer, points } = answerData;
+
+  // Define which types are scorable
+  const SCORABLE_TYPES = [
+    'Comprehension', 'Categorize', 'Cloze', 
+    'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
+  ];
+  
+  const isScorable = SCORABLE_TYPES.includes(questionId.type);
   const wasCorrect = points === 10;
   const wasPartiallyCorrect = points > 0 && points < 10;
 
+  // Determine the display style based on points
+  let statusStyle = 'border-gray-300'; // Default for non-scorable
+  let statusText = 'Submitted';
+  let statusBg = 'bg-gray-100 text-gray-700';
+
+  if (isScorable) {
+    if (wasCorrect) {
+      statusStyle = 'border-green-500';
+      statusText = 'Correct';
+      statusBg = 'bg-green-100 text-green-700';
+    } else if (wasPartiallyCorrect) {
+      statusStyle = 'border-yellow-500';
+      statusText = 'Partially Correct';
+      statusBg = 'bg-yellow-100 text-yellow-700';
+    } else {
+      statusStyle = 'border-red-500';
+      statusText = 'Incorrect';
+      statusBg = 'bg-red-100 text-red-700';
+    }
+  }
+
   const renderBreakdown = () => {
     switch (questionId.type) {
+      // Complex (already working)
       case 'Comprehension':
         return <ComprehensionBreakdown question={questionId} userAnswer={answer} />;
       case 'Categorize':
         return <CategorizeBreakdown question={questionId} userAnswer={answer} />;
       case 'Cloze':
         return <ClozeBreakdown question={questionId} userAnswer={answer} />;
+      
+      // Simple Scorable (NEW)
+      case 'MultipleChoice':
+      case 'Dropdown':
+      case 'PictureChoice':
+        return <SimpleBreakdown question={questionId} userAnswer={answer} isCorrect={wasCorrect} />;
+      case 'Checkbox':
+        return <CheckboxBreakdown question={questionId} userAnswer={answer} isCorrect={wasCorrect} />;
+
+      // Simple Non-Scorable (NEW)
+      case 'ShortAnswer':
+      case 'Email':
+      case 'Switch':
+        return <SubmissionOnlyBreakdown question={questionId} userAnswer={answer} />;
+
+      // Fallback
       default:
         return <p>Cannot display breakdown for this question type.</p>;
     }
   };
 
-  // Determine the display style based on points from the backend
-  let statusStyle = 'border-red-500';
-  let statusText = 'Incorrect';
-  let statusBg = 'bg-red-100 text-red-700';
-
-  if (wasCorrect) {
-    statusStyle = 'border-green-500';
-    statusText = 'Correct';
-    statusBg = 'bg-green-100 text-green-700';
-  } else if (wasPartiallyCorrect) {
-    statusStyle = 'border-yellow-500';
-    statusText = 'Partially Correct';
-    statusBg = 'bg-yellow-100 text-yellow-700';
-  }
-
   return (
     <div className={`bg-white p-6 rounded-lg border-l-4 ${statusStyle} shadow-sm`}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-900">
-            Question #{index + 1}: {questionId.type}
-            <span className="ml-4 text-base font-medium text-gray-600">({points}/10 pts)</span>
+            Question #{index + 1}: {questionId.text || questionId.type}
+            {isScorable && <span className="ml-4 text-base font-medium text-gray-600">({points}/10 pts)</span>}
         </h3>
         <span className={`text-sm font-bold px-3 py-1 rounded-full ${statusBg}`}>
             {statusText}
         </span>
       </div>
-      <p className="mt-2 text-gray-600 italic text-sm">{questionId.passage || questionId.comprehensionPassage || 'Categorize the following items:'}</p>
+      
+      {/* Show passage for complex questions */}
+      {(questionId.type === 'Comprehension' || questionId.type === 'Cloze') &&
+        <p className="mt-2 text-gray-600 italic text-sm">{questionId.passage || questionId.comprehensionPassage}</p>
+      }
+      {questionId.type === 'Categorize' &&
+        <p className="mt-2 text-gray-600 italic text-sm">Categorize the items</p>
+      }
       
       <div className="mt-4 border-t border-gray-200 pt-4">
         {renderBreakdown()}

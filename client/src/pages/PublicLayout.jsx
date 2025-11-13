@@ -1,11 +1,11 @@
 // src/pages/PublicLayout.jsx
 import { Outlet } from 'react-router-dom';
-import Header from '../components/Header'; // The original public-facing header
+// We no longer import Header
 
 const PublicLayout = () => {
   return (
     <>
-      <Header />
+      {/* Header is removed from here and placed in child pages */}
       <Outlet />
     </>
   );

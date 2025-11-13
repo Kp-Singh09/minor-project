@@ -1,13 +1,28 @@
+// server/index.js
+import dotenv from 'dotenv';
+import path from 'path'; // 1. Import path
+import { fileURLToPath } from 'url'; // 2. Import url
+
+// 3. Get the directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 4. Explicitly load the .env file from the current directory
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+// 5. We can remove the debug logs now
+// console.log("--- DEBUGGING AFTER EXPLICIT CONFIG ---");
+// ...
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import formRoutes from './routes/formRoutes.js'; 
 import responseRoutes from './routes/responseRoutes.js';
 import imageKitRoutes from './routes/imageKitRoutes.js'; 
 import statsRoutes from './routes/statsRoutes.js';
+import aiRoutes from './routes/aiRoutes.js'; 
 
-dotenv.config();
 const app = express();
 
 // CORS configuration
@@ -50,6 +65,7 @@ app.use('/api/forms', formRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/imagekit', imageKitRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Database Connection and Server Start
 const PORT = process.env.PORT || 5000;

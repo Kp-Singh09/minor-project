@@ -92,7 +92,9 @@ const EditorLayout = () => {
 
     try {
         if (isNewForm) {
-            const themeName = searchParams.get('theme') || 'Default';
+            // --- THIS IS THE FIX ---
+            const themeName = searchParams.get('theme') || 'Light'; // Changed from 'Default'
+            // --- END OF FIX ---
             const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, {
                 title: newTitle,
                 userId: user.id,

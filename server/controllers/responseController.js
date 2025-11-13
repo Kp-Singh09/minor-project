@@ -67,8 +67,18 @@ export const getResponsesByFormId = async (req, res) => {
       }
   
       let totalScore = 0;
-      const totalMarks = form.questions.length * 10;
       const marksPerQuestion = 10;
+
+      // --- FIX 1: Only count scorable questions for the total marks ---
+      const SCORABLE_TYPES = [
+        'Comprehension', 'Categorize', 'Cloze', 
+        'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
+      ];
+      
+      const scorableQuestions = form.questions.filter(q => SCORABLE_TYPES.includes(q.type));
+      const totalMarks = scorableQuestions.length * 10;
+      // --- END OF FIX 1 ---
+      
       const processedAnswers = []; // To store answers with their calculated points
   
       for (const submittedAnswer of answers) {
@@ -76,7 +86,10 @@ export const getResponsesByFormId = async (req, res) => {
         if (!question) continue;
   
         let questionScore = 0;
+        
+        // --- FIX 2: Add cases for all scorable question types ---
         switch (question.type) {
+          // Complex Types (already working)
           case 'Comprehension':
             if (question.mcqs && question.mcqs.length > 0) {
               const pointsPerMcq = marksPerQuestion / question.mcqs.length;
@@ -113,7 +126,28 @@ export const getResponsesByFormId = async (req, res) => {
               }
             }
             break;
+
+          // Simple Scorable Types (NEW)
+          case 'MultipleChoice':
+          case 'Dropdown':
+          case 'PictureChoice':
+            if (submittedAnswer.answer === question.correctAnswer) {
+              questionScore = marksPerQuestion;
+            }
+            break;
+
+          case 'Checkbox':
+            const userAnswers = Array.isArray(submittedAnswer.answer) ? submittedAnswer.answer.sort() : [];
+            const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.sort() : [];
+            if (JSON.stringify(userAnswers) === JSON.stringify(correctAnswers)) {
+              questionScore = marksPerQuestion;
+            }
+            // Note: You could also add partial credit here if you wanted
+            break;
+
+          // Non-Scorable types (Email, ShortAnswer, Switch) will just get 0 points, which is fine.
         }
+        // --- END OF FIX 2 ---
   
         totalScore += questionScore;
         processedAnswers.push({

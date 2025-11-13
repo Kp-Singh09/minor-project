@@ -27,12 +27,18 @@ const ChooseStart = ({ onSelect, onCancel }) => {
             </button>
             
             <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Choose how to get started</h2>
-            <div className="flex justify-center gap-8">
+            <div className="flex flex-wrap justify-center gap-8">
                 <ChoiceCard
                     title="Blank form"
                     description="Start from scratch"
                     icon="📄"
                     onClick={() => onSelect('blank')}
+                />
+                <ChoiceCard
+                    title="Create with AI"
+                    description="Generate with a prompt"
+                    icon="✨"
+                    onClick={() => onSelect('ai')}
                 />
                 <ChoiceCard
                     title="Template"

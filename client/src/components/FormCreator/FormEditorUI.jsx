@@ -211,7 +211,11 @@ const FormEditorUI = () => {
         return <div className="p-8 text-center text-red-500">Could not load form.</div>;
     }
 
-    const selectedTheme = themes[form.theme] || themes['Default'];
+    // --- THIS IS THE FIX ---
+    // Make the fallback safer. It will try the form's theme, then 'Light', 
+    // then the very first theme in the object, just to be safe.
+    const selectedTheme = themes[form.theme] || themes['Light'] || Object.values(themes)[0];
+    // --- END OF FIX ---
 
     return (
         <motion.div 

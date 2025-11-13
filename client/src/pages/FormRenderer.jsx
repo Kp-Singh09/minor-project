@@ -19,9 +19,36 @@ import DropdownRenderer from '../components/renderer/DropdownRenderer';
 import SwitchRenderer from '../components/renderer/SwitchRenderer';
 import PictureChoiceRenderer from '../components/renderer/PictureChoiceRenderer';
 
-import { themes as themesObject } from '../themes';
+// --- Import themesObject AND themesArray ---
+import { themes as themesObject, themesArray } from '../themes';
 
-const gridBackground = "bg-[#f8f7f4] bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
+// 1. Import Header
+import Header from '../components/Header';
+
+// --- 2. Define the grid-only pattern (removed the base color) ---
+const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
+
+// --- Theme Switcher Component ---
+const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
+  return (
+    <div className="fixed top-4 right-4 z-50">
+      <select
+        value={currentThemeName}
+        onChange={(e) => onThemeChange(e.target.value)}
+        className="bg-white border border-gray-300 rounded-md shadow-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="" disabled>Change Theme</option>
+        {themesArray.map(theme => (
+          <option key={theme.name} value={theme.name}>
+            {theme.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
+// --- END: Theme Switcher Component ---
+
 
 const FormRenderer = () => {
   const { formId } = useParams();
@@ -32,11 +59,14 @@ const FormRenderer = () => {
   const [error, setError] = useState(null);
   const [answers, setAnswers] = useState({});
 
+  const [selectedThemeName, setSelectedThemeName] = useState('Light');
+
   useEffect(() => {
     const fetchForm = async () => {
       try {
         const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
         setForm(response.data);
+        setSelectedThemeName(response.data.theme || 'Light');
       } catch (err) {
         setError('Failed to fetch form. Please check the URL.');
       } finally {
@@ -78,19 +108,30 @@ const FormRenderer = () => {
     }
   };
 
+  const theme = themesObject[selectedThemeName] || themesObject['Light'];
+
+  const darkThemes = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'];
+  const currentThemeMode = darkThemes.includes(selectedThemeName) ? 'dark' : 'light';
+
   if (loading && !form) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-800 text-xl">Loading Form...</div>;
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-500 text-xl">{error}</div>;
   if (!form) return null;
 
-  const theme = themesObject[form.theme] || themesObject['Default'];
-
-  // --- Filter out questions that are for display only ---
   const questionsToAnswer = form.questions.filter(q => 
     q.type !== 'Heading' && q.type !== 'Paragraph' && q.type !== 'Banner'
   );
 
   return (
-    <div className={`min-h-screen py-16 px-4 transition-colors duration-300 ${gridBackground}`}>
+    // --- 3. Apply the theme's background color AND the grid pattern ---
+    <div className={`min-h-screen px-4 pb-16 transition-colors duration-300 ${theme.background} ${gridOnly}`}>
+      
+      <Header themeMode={currentThemeMode} />
+
+      <ThemeSwitcher 
+        currentThemeName={selectedThemeName}
+        onThemeChange={setSelectedThemeName}
+      />
+      
       <div className="max-w-4xl mx-auto">
         {/* --- Form Header Canvas --- */}
         <div className={`p-8 rounded-lg shadow-md mb-10 text-center ${theme.cardBg}`}>
@@ -104,7 +145,7 @@ const FormRenderer = () => {
           <h1 className={`text-4xl font-bold ${theme.text}`}>{form.title}</h1>
         </div>
         
-        {/* --- Main Render Loop --- */}
+        {/* --- Main Render Loop (This all works, just passing the new theme) --- */}
         <div className="space-y-8">
             {form.questions.map(question => {
                 switch (question.type) {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useUser } from "@clerk/clerk-react"; 
-
+import Header from "../components/Header"; // Import Header
 
 const features = [
   {
@@ -46,6 +46,9 @@ const faqData = [
     { question: "How do I view responses?", answer: "From your dashboard, you can click on 'Responses' in the sidebar to see a list of your forms and view the submissions for each." },
 ];
 
+// --- 1. Define the grid-only pattern ---
+const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
+
 export default function HomePage() {
   const [openIndex, setOpenIndex] = useState(null);
   const { isSignedIn } = useUser();
@@ -63,11 +66,14 @@ export default function HomePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
-        className="min-h-screen pt-28 bg-[#f8f7f4] text-gray-800 relative bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]"
+        // --- 2. Apply the grid pattern *over* the base color ---
+        className={`min-h-screen bg-[#f8f7f4] text-gray-800 relative ${gridOnly}`}
       >
+        {/* --- 3. Header is now INSIDE the main element --- */}
+        <Header themeMode="light" />
 
         {/* HERO SECTION */}
-        <section className="text-center pt-16 md:pt-24 px-4">
+        <section className="text-center pt-16 md:pt-24 px-4 pb-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
