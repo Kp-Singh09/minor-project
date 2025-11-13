@@ -4,29 +4,29 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FormsContext } from './ProtectedLayout'; // Import the context
-import { useUser } from '@clerk/clerk-react'; // 1. Import useUser
+import { useUser } from '@clerk/clerk-react';
 
 // --- IMPORT THE MODAL COMPONENTS ---
 import ChooseStart from '../components/FormCreator/ChooseStart';
 import ChooseTheme from '../components/FormCreator/ChooseTheme';
-import AiPromptModal from '../components/FormCreator/AiPromptModal'; // 2. Import AiPromptModal
+import AiPromptModal from '../components/FormCreator/AiPromptModal';
+import ChooseTemplate from '../components/FormCreator/ChooseTemplate'; // <-- 1. IMPORT ChooseTemplate
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { userForms: forms, refetchForms } = useContext(FormsContext); // Consume the context
-  const { user } = useUser(); // 3. Get the user object
-  const [loading, setLoading] = useState(false); // Loading is now for actions, not initial fetch
+  const { userForms: forms, refetchForms } = useContext(FormsContext);
+  const { user } = useUser();
+  const [loading, setLoading] = useState(false);
   const [copiedFormId, setCopiedFormId] = useState(null);
 
-  // --- NEW STATE FOR MODAL ---
-  const [modalStage, setModalStage] = useState(null); // null, 'start', 'ai', or 'theme'
-  const [formType, setFormType] = useState(null); // 'blank' or 'template'
-  const [aiPrompt, setAiPrompt] = useState(""); // 4. Add state for the prompt
-  const [isAiLoading, setIsAiLoading] = useState(false); // 5. Add loading state for AI
+  // --- STATE FOR MODAL ---
+  const [modalStage, setModalStage] = useState(null); // null, 'start', 'ai', 'template', or 'theme'
+  const [formType, setFormType] = useState(null); // 'blank', 'ai', or 'template'
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null); // <-- 2. ADD state for template
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // --- UPDATE THIS FUNCTION ---
   const handleCreateForm = () => {
-    // Instead of opening a new tab, just show the modal
     setModalStage('start');
   };
 
@@ -48,7 +48,7 @@ const DashboardPage = () => {
     if (window.confirm(`Are you sure you want to delete "${formTitle}"? This action cannot be undone.`)) {
       try {
         await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
-        refetchForms(); // Refetch forms from the parent layout
+        refetchForms();
       } catch (error) {
         console.error("Failed to delete form", error);
         alert("Could not delete the form. Please try again.");
@@ -56,36 +56,55 @@ const DashboardPage = () => {
     }
   };
   
-  // --- NEW HANDLERS FOR THE MODAL FLOW ---
   const handleModalClose = () => {
     setModalStage(null);
     setFormType(null);
     setAiPrompt("");
     setIsAiLoading(false);
+    setSelectedTemplateId(null); // <-- 3. RESET template ID
   };
 
   const handleStartSelect = (type) => {
     setFormType(type);
     if (type === 'ai') {
-      setModalStage('ai'); // Go to AI prompt stage
-    } else {
-      setModalStage('theme'); // Go to theme stage
+      setModalStage('ai');
+    } else if (type === 'template') { // <-- 4. UPDATE this logic
+      setModalStage('template');
+    } else { // 'blank'
+      setModalStage('theme');
     }
   };
 
+  // <-- 5. ADD new handler for template selection
+  const handleTemplateSelect = (templateId) => {
+    setSelectedTemplateId(templateId);
+    setModalStage('theme'); // Go to theme selection
+  };
+
   const handleThemeBack = () => {
-    setModalStage('start'); // Go back to start
+    // <-- 6. UPDATE this logic
+    if (formType === 'template') {
+      setModalStage('template'); // Go back to template selection
+    } else {
+      setModalStage('start'); // Go back to start
+    }
   };
 
   const handleThemeCreate = (theme) => {
-    // This is where we finally open the new tab and close the modal
-    // We can pass the theme name as a query param if needed
+    // <-- 7. UPDATE this logic
     const themeName = encodeURIComponent(theme.name);
-    window.open(`/editor/new?theme=${themeName}`, '_blank');
+    let url = '/editor/new';
+
+    if (formType === 'template' && selectedTemplateId) {
+      url = `/editor/new?template=${selectedTemplateId}&theme=${themeName}`;
+    } else { // 'blank'
+      url = `/editor/new?theme=${themeName}`;
+    }
+    
+    window.open(url, '_blank');
     handleModalClose();
   };
 
-  // 6. Add the AI submission handler
   const handleAiSubmit = async () => {
       if (!user || !aiPrompt) return;
 
@@ -99,9 +118,9 @@ const DashboardPage = () => {
 
           const { formId } = response.data;
           if (formId) {
-              refetchForms(); // Update the dashboard form list
-              window.open(`/editor/${formId}`, '_blank'); // Open the new form
-              handleModalClose(); // Close the modal
+              refetchForms();
+              window.open(`/editor/${formId}`, '_blank');
+              handleModalClose();
           } else {
               throw new Error("Failed to get formId from response");
           }
@@ -112,7 +131,6 @@ const DashboardPage = () => {
       }
   };
 
-  // 7. Add a new back handler for the AI modal
   const handleAiBack = () => {
       setModalStage('start');
   };
@@ -136,9 +154,8 @@ const DashboardPage = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={handleModalClose} // Close on overlay click
+            onClick={handleModalClose}
           >
-            {/* This stops the overlay click from closing the modal */}
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -151,7 +168,6 @@ const DashboardPage = () => {
                 <ChooseStart onSelect={handleStartSelect} onCancel={handleModalClose} />
               )}
 
-              {/* 8. Add the new modal to the render logic */}
               {modalStage === 'ai' && (
                 <AiPromptModal
                   prompt={aiPrompt}
@@ -163,11 +179,20 @@ const DashboardPage = () => {
                 />
               )}
 
+              {/* -- 8. ADD template stage to modal */}
+              {modalStage === 'template' && (
+                <ChooseTemplate
+                  onSelectTemplate={handleTemplateSelect}
+                  onBack={() => setModalStage('start')}
+                  onCancel={handleModalClose}
+                />
+              )}
+
               {modalStage === 'theme' && (
                 <ChooseTheme 
                   onSelectTheme={handleThemeCreate} 
                   onBack={handleThemeBack} 
-                  onClose={handleModalClose} // Add close button
+                  onClose={handleModalClose}
                 />
               )}
             </motion.div>
@@ -182,7 +207,7 @@ const DashboardPage = () => {
               <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={handleCreateForm} // This now opens the modal
+                  onClick={handleCreateForm}
                   className="glow-btn"
               >
                   + Create New Form

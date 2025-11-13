@@ -28,6 +28,9 @@ import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
 import { themes as themesObject } from '../themes'; 
 import ChooseTheme from '../components/FormCreator/ChooseTheme';
 
+// --- 1. IMPORT YOUR NEW TEMPLATES FILE ---
+import { templates } from '../templates'; 
+
 const gridBackground = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
 
 const EditorLayout = () => {
@@ -64,13 +67,22 @@ const EditorLayout = () => {
 
     if (isNewForm) {
       setLoading(false);
-      setTempTitle('Untitled Form');
+      
+      // --- 2. UPDATE this logic to check for a template title
+      const templateId = searchParams.get('template');
+      let initialTitle = 'Untitled Form';
+      if (templateId && templates[templateId]) {
+        initialTitle = templates[templateId].data.title; 
+      }
+      setTempTitle(initialTitle); 
+      // --- End of update ---
+
       setIsNamingModalOpen(true);
     } else {
       setIsNamingModalOpen(false);
       fetchForm(formId);
     }
-  }, [formId, isNewForm, navigate]);
+  }, [formId, isNewForm, navigate, searchParams]); // <-- Add searchParams as dependency
 
   // --- Refetch form data ---
   const refetchForm = useCallback(async (idToFetch) => {
@@ -92,15 +104,32 @@ const EditorLayout = () => {
 
     try {
         if (isNewForm) {
-            // --- THIS IS THE FIX ---
-            const themeName = searchParams.get('theme') || 'Light'; // Changed from 'Default'
-            // --- END OF FIX ---
-            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, {
+            // --- 3. UPDATE this logic to send template data
+            const themeName = searchParams.get('theme') || 'Light';
+            const templateId = searchParams.get('template');
+            
+            let payload = {
                 title: newTitle,
                 userId: user.id,
                 username: user.fullName || user.username,
                 theme: themeName,
-            });
+            };
+    
+            // If a template is specified, find it and add its questions
+            if (templateId && templates[templateId]) {
+                const template = templates[templateId];
+                
+                // Use template title if user hasn't changed it from the default
+                if (newTitle === template.data.title) {
+                    payload.title = template.data.title;
+                }
+                
+                payload.questions = template.data.questions; // Add questions to payload
+            }
+    
+            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, payload); // Send new payload
+            // --- End of update ---
+
             setForm(formResponse.data);
             setIsNamingModalOpen(false);
             navigate(`/editor/${formResponse.data._id}`, { replace: true });
@@ -313,7 +342,7 @@ const EditorLayout = () => {
     <div className="min-h-screen bg-sky-50 text-gray-800">
       <HorizontalNavbar 
         sidebarWidthClass="md:left-80" 
-        title={form ? form.title : (isNewForm ? '...' : 'Loading...')}
+        title={form ? form.title : (tempTitle || 'Loading...')} // <-- Use tempTitle as fallback
         onTitleClick={() => {
           if (!isNewForm && form) { 
             setTempTitle(form.title);
@@ -372,6 +401,7 @@ const EditorLayout = () => {
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); }}
                   autoFocus
+                  onFocus={(e) => e.target.select()} // Auto-select text
                 />
                 <button
                   onClick={handleSaveTitle}

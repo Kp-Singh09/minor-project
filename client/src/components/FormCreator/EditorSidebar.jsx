@@ -1,5 +1,5 @@
 // client/src/components/FormCreator/EditorSidebar.jsx
-import React from 'react';
+import React, { useState } from 'react'; // 1. Import useState
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom'; 
 
@@ -54,6 +54,9 @@ const FieldItem = ({ icon, name, type, onClick }) => (
 
 const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
     
+    // 2. Add state for the search term
+    const [searchTerm, setSearchTerm] = useState('');
+
     const handleFieldClick = (type) => {
         switch(type) {
             // Complex types open a builder
@@ -86,6 +89,21 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
         }
     };
 
+    // 3. Create the filtering logic
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    const filteredFieldCategories = fieldCategories.map(category => {
+        // Filter fields within each category
+        const filteredFields = category.fields.filter(field => 
+            field.name.toLowerCase().includes(lowerSearchTerm)
+        );
+        // Return the category with only the filtered fields
+        return { ...category, fields: filteredFields };
+    }).filter(category => 
+        // Hide the entire category if no fields match
+        category.fields.length > 0
+    );
+
+
     return (
         <aside className="fixed top-0 left-0 w-80 h-full bg-sky-100 z-40 flex flex-col border-r border-sky-300/70">
             
@@ -97,14 +115,18 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
             
             <div className="p-4 overflow-y-auto">
                 <div className="mb-6">
+                    {/* 4. Wire up the input to the state */}
                     <input 
                         type="text" 
                         placeholder="Search fields" 
                         className="w-full p-2 pl-4 rounded-full bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                {fieldCategories.map((category, index) => (
+                {/* 5. Map over the NEW filtered list */}
+                {filteredFieldCategories.map((category, index) => (
                     <div key={index} className="mb-6">
                         <h3 className="text-md font-semibold text-sky-800 mb-3 border-b pb-2 border-sky-300/70">{category.name}</h3>
                         <div className="grid grid-cols-3 gap-3">
@@ -120,6 +142,13 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
                         </div>
                     </div>
                 ))}
+
+                {/* 6. Show a message if no results are found */}
+                {filteredFieldCategories.length === 0 && searchTerm && (
+                    <div className="text-center text-gray-500 mt-6">
+                        <p>No fields found for "{searchTerm}"</p>
+                    </div>
+                )}
             </div>
         </aside>
     );
