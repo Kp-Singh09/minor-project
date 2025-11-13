@@ -32,7 +32,7 @@ const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgb
 // --- Theme Switcher Component ---
 const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="fixed right-4 z-50">
       <select
         value={currentThemeName}
         onChange={(e) => onThemeChange(e.target.value)}
