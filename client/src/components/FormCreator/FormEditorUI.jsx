@@ -4,33 +4,111 @@ import { motion } from 'framer-motion';
 import { useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 
-// --- Simple Card for Heading ---
-const HeadingCard = ({ question, onEdit, onDelete, theme }) => (
-  <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
-    <div className="flex justify-between items-start">
-      <h2 className={`text-3xl font-bold ${theme.text}`}>{question.text}</h2>
-      <div className="flex gap-2 flex-shrink-0 ml-4">
-        <button onClick={() => onEdit(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
-        <button onClick={() => onDelete(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
+// --- Card for Simple Text (Heading, Paragraph, ShortAnswer, Email, Switch) ---
+const SimpleTextCard = ({ question, onEdit, onDelete, theme }) => {
+  let content = null;
+  switch (question.type) {
+    case 'Heading':
+      content = <h2 className={`text-3xl font-bold ${theme.text}`}>{question.text}</h2>;
+      break;
+    case 'Paragraph':
+      content = <p className={`text-base ${theme.secondaryText}`}>{question.text}</p>;
+      break;
+    case 'ShortAnswer':
+      content = (
+        <div>
+          <p className={`font-semibold text-lg mb-2 ${theme.text}`}>{question.text}</p>
+          <input type="text" disabled className={`w-full p-2 rounded-md ${theme.input} bg-opacity-50 border-none`} placeholder="Answer..." />
+        </div>
+      );
+      break;
+    case 'Email':
+      content = (
+        <div>
+          <p className={`font-semibold text-lg mb-2 ${theme.text}`}>{question.text}</p>
+          <input type="email" disabled className={`w-full p-2 rounded-md ${theme.input} bg-opacity-50 border-none`} placeholder="name@example.com" />
+        </div>
+      );
+      break;
+    case 'Switch':
+       content = (
+         <div className="flex items-center justify-between">
+            <p className={`font-semibold text-lg ${theme.text}`}>{question.text}</p>
+            <div className="w-11 h-6 bg-gray-400 rounded-full relative">
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full"></div>
+            </div>
+         </div>
+       );
+       break;
+    default:
+      content = <p>{question.text}</p>;
+  }
+
+  return (
+    <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
+      <div className="flex justify-between items-start">
+        <div className="flex-grow pr-4">{content}</div>
+        <div className="flex gap-2 flex-shrink-0 ml-4">
+          <button onClick={() => onEdit(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
+          <button onClick={() => onDelete(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
+        </div>
       </div>
+    </div>
+  );
+};
+
+// --- Card for Options (MultipleChoice, Checkbox, Dropdown) ---
+const OptionsCard = ({ question, onEdit, onDelete, theme }) => {
+  const icon = question.type === 'Checkbox' ? '☑' : (question.type === 'Dropdown' ? '🔽' : '🔘');
+  return (
+    <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
+      <div className="flex justify-between items-start mb-3">
+        <p className={`font-semibold text-lg ${theme.text}`}>{question.text}</p>
+        <div className="flex gap-2 flex-shrink-0 ml-4">
+          <button onClick={() => onEdit(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
+          <button onClick={() => onDelete(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {question.options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-xl">{icon}</span>
+            <span className={theme.secondaryText}>{opt}</span>
+            {opt === question.correctAnswer && <span className="text-xs text-green-600 font-bold">(Correct)</span>}
+            {question.correctAnswers?.includes(opt) && <span className="text-xs text-green-600 font-bold">(Correct)</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- Card for PictureChoice ---
+const PictureChoiceCard = ({ question, onEdit, onDelete, theme }) => (
+  <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
+    <div className="flex justify-between items-start mb-3">
+        <p className={`font-semibold text-lg ${theme.text}`}>{question.text}</p>
+        <div className="flex gap-2 flex-shrink-0 ml-4">
+          <button onClick={() => onEdit(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
+          <button onClick={() => onDelete(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
+        </div>
+    </div>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {question.options.map((image, index) => (
+          <div key={index} className={`rounded-lg overflow-hidden border-2 ${image === question.correctAnswer ? 'border-green-500' : 'border-transparent'}`}>
+            {image ? (
+              <img src={image} alt={`Option ${index+1}`} className="w-full h-24 object-cover" />
+            ) : (
+              <div className="w-full h-24 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">No Image</div>
+            )}
+          </div>
+        ))}
     </div>
   </div>
 );
 
-// --- Simple Card for Paragraph ---
-const ParagraphCard = ({ question, onEdit, onDelete, theme }) => (
-  <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
-    <div className="flex justify-between items-start">
-      <p className={`text-base ${theme.secondaryText}`}>{question.text}</p>
-      <div className="flex gap-2 flex-shrink-0 ml-4">
-        <button onClick={() => onEdit(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-1 px-3 rounded-md">Edit</button>
-        <button onClick={() => onDelete(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-1 px-3 rounded-md">Delete</button>
-      </div>
-    </div>
-  </div>
-);
 
-// --- Simple Card for Banner ---
+// --- Card for Banner ---
 const BannerCard = ({ question, onEdit, onDelete, theme }) => (
   <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
     <div className="flex justify-between items-center mb-4">
@@ -50,7 +128,7 @@ const BannerCard = ({ question, onEdit, onDelete, theme }) => (
   </div>
 );
 
-// --- Card for Complex Questions (existing) ---
+// --- Card for Complex Questions (Cloze, Comprehension, Categorize) ---
 const QuestionCard = ({ question, index, onEdit, onDelete, theme }) => {
     return (
         <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
@@ -183,13 +261,25 @@ const FormEditorUI = () => {
                     </div>
                 )}
 
+                {/* --- UPDATED: Render loop with switch statement --- */}
                 {form.questions && form.questions.length > 0 ? (
                     form.questions.map((q, index) => {
                         switch (q.type) {
                             case 'Heading':
-                                return <HeadingCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
                             case 'Paragraph':
-                                return <ParagraphCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                            case 'ShortAnswer':
+                            case 'Email':
+                            case 'Switch':
+                                return <SimpleTextCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                            
+                            case 'MultipleChoice':
+                            case 'Checkbox':
+                            case 'Dropdown':
+                                return <OptionsCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+
+                            case 'PictureChoice':
+                                return <PictureChoiceCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+
                             case 'Banner':
                                 return <BannerCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
                             
@@ -219,9 +309,7 @@ const FormEditorUI = () => {
                 )}
             </div>
 
-            {/* --- 
-                THIS IS THE SECTION THAT WAS MISSING 
-            --- */}
+            {/* --- Buttons container --- */}
             <div className="w-full max-w-2xl mx-auto flex justify-end gap-4 mt-8">
                 <motion.button
                     whileHover={{ scale: 1.05 }}

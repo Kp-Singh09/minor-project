@@ -2,7 +2,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom'; 
-// --- REMOVED THEMES IMPORT ---
 
 const fieldCategories = [
     {
@@ -16,7 +15,6 @@ const fieldCategories = [
     {
         name: "Display text",
         fields: [
-            // --- These are now active ---
             { icon: "H1", name: "Heading", type: 'Heading' },
             { icon: "¶", name: "Paragraph", type: 'Paragraph' },
             { icon: "📢", name: "Banner", type: 'Banner' },
@@ -27,7 +25,7 @@ const fieldCategories = [
         fields: [
             { icon: "🔽", name: "Dropdown", type: 'Dropdown' },
             { icon: "🖼️", name: "Picture choice", type: 'PictureChoice' },
-            { icon: "🔠", name: "Multiselect", type: 'Multiselect' },
+            // { icon: "🔠", name: "Multiselect", type: 'Multiselect' }, // Re-add when ready
             { icon: "🎚️", name: "Switch", type: 'Switch' },
             { icon: "☑️", name: "Checkbox", type: 'Checkbox' },
         ]
@@ -54,10 +52,8 @@ const FieldItem = ({ icon, name, type, onClick }) => (
     </motion.div>
 );
 
-// --- UPDATED: Accept onAddSimpleField prop ---
 const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
     
-    // --- UPDATED: This handler is now much smarter ---
     const handleFieldClick = (type) => {
         switch(type) {
             // Complex types open a builder
@@ -66,19 +62,19 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
             case 'Categorize':
                 setActiveBuilder(type); 
                 break;
+                
             // Simple types are added directly
             case 'Heading':
             case 'Paragraph':
             case 'Banner':
-            // --- You can add your other simple fields here too ---
-            // case 'ShortAnswer':
-            // case 'MultipleChoice':
-            // case 'Email':
-            // case 'Dropdown':
-            // case 'PictureChoice':
-            // case 'Multiselect':
-            // case 'Switch':
-            // case 'Checkbox':
+            case 'ShortAnswer':
+            case 'MultipleChoice':
+            case 'Email':
+            case 'Dropdown':
+            case 'PictureChoice':
+            case 'Multiselect':
+            case 'Switch':
+            case 'Checkbox':
                 if (onAddSimpleField) {
                     onAddSimpleField(type);
                 } else {
@@ -86,11 +82,7 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
                 }
                 break;
             default:
-                // Fallback for any types you haven't implemented
                 console.log("Adding field (unhandled):", type);
-                if (onAddSimpleField) {
-                    onAddSimpleField(type);
-                }
         }
     };
 
@@ -111,8 +103,6 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
                         className="w-full p-2 pl-4 rounded-full bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                 </div>
-
-                {/* --- REMOVED THEME SECTION --- */}
 
                 {fieldCategories.map((category, index) => (
                     <div key={index} className="mb-6">

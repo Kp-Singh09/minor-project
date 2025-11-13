@@ -5,27 +5,42 @@ const questionSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    // --- UPDATED: Add new simple types ---
-    enum: ['Categorize', 'Cloze', 'Comprehension', 'Heading', 'Paragraph', 'Banner']
+    enum: [
+      // Complex Types
+      'Categorize', 'Cloze', 'Comprehension', 
+      // Simple Display Types
+      'Heading', 'Paragraph', 'Banner',
+      // --- NEW: Simple Input Types ---
+      'ShortAnswer', 'Email', 'MultipleChoice', 'Checkbox', 
+      'Dropdown', 'Switch', 'PictureChoice'
+    ]
   },
-  // --- UPDATED: Add 'text' field for Heading/Paragraph ---
+  // Used by Heading, Paragraph, ShortAnswer, Email
   text: { type: String, default: '' },
   
-  // This will store the URL from ImageKit for a specific question (used by Banner)
+  // Used by Banner, PictureChoice
   image: { type: String, default: null },
 
-  // Fields for 'Categorize' type
+  // Used by MultipleChoice, Checkbox, Dropdown, PictureChoice, Cloze
+  options: [{ type: String }], 
+  
+  // Used by MultipleChoice, Dropdown, PictureChoice
+  correctAnswer: { type: String },
+
+  // Used by Checkbox
+  correctAnswers: [{ type: String }],
+
+  // --- Fields for 'Categorize' type ---
   categories: [{ type: String }],
   items: [{
     text: String,
     category: String 
   }],
 
-  // Fields for 'Cloze' type
+  // --- Fields for 'Cloze' type ---
   passage: { type: String }, 
-  options: [{ type: String }], 
 
-  // Fields for 'Comprehension' type
+  // --- Fields for 'Comprehension' type ---
   comprehensionPassage: { type: String }, 
   mcqs: [{
     questionText: String,

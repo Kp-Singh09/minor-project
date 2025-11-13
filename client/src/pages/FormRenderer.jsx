@@ -11,6 +11,13 @@ import ClozeRenderer from '../components/renderer/ClozeRenderer';
 import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import BannerRenderer from '../components/renderer/BannerRenderer';
+import ShortAnswerRenderer from '../components/renderer/ShortAnswerRenderer';
+import MultipleChoiceRenderer from '../components/renderer/MultipleChoiceRenderer';
+import EmailRenderer from '../components/renderer/EmailRenderer';
+import CheckboxRenderer from '../components/renderer/CheckboxRenderer';
+import DropdownRenderer from '../components/renderer/DropdownRenderer';
+import SwitchRenderer from '../components/renderer/SwitchRenderer';
+import PictureChoiceRenderer from '../components/renderer/PictureChoiceRenderer';
 
 import { themes as themesObject } from '../themes';
 
@@ -49,7 +56,7 @@ const FormRenderer = () => {
       return;
     }
     try {
-      setLoading(true); // Set loading state
+      setLoading(true); 
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/responses`, {
         formId,
         answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
@@ -67,7 +74,7 @@ const FormRenderer = () => {
     } catch (err) {
       alert('Error submitting form. Please try again.');
     } finally {
-        setLoading(false); // Unset loading state
+        setLoading(false);
     }
   };
 
@@ -76,6 +83,11 @@ const FormRenderer = () => {
   if (!form) return null;
 
   const theme = themesObject[form.theme] || themesObject['Default'];
+
+  // --- Filter out questions that are for display only ---
+  const questionsToAnswer = form.questions.filter(q => 
+    q.type !== 'Heading' && q.type !== 'Paragraph' && q.type !== 'Banner'
+  );
 
   return (
     <div className={`min-h-screen py-16 px-4 transition-colors duration-300 ${gridBackground}`}>
@@ -92,12 +104,11 @@ const FormRenderer = () => {
           <h1 className={`text-4xl font-bold ${theme.text}`}>{form.title}</h1>
         </div>
         
-        {/* --- UPDATED: Main Render Loop --- */}
+        {/* --- Main Render Loop --- */}
         <div className="space-y-8">
             {form.questions.map(question => {
-                // --- Pass theme prop to all renderers ---
                 switch (question.type) {
-                // Simple Display Components
+                // Simple Display
                 case 'Heading':
                     return <HeadingRenderer key={question._id} text={question.text} theme={theme} />;
                 case 'Paragraph':
@@ -105,7 +116,23 @@ const FormRenderer = () => {
                 case 'Banner':
                     return <BannerRenderer key={question._id} imageSrc={question.image} theme={theme} />;
 
-                // Complex Question Components
+                // Simple Input
+                case 'ShortAnswer':
+                    return <ShortAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Email':
+                    return <EmailRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'MultipleChoice':
+                    return <MultipleChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Checkbox':
+                    return <CheckboxRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Dropdown':
+                    return <DropdownRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Switch':
+                    return <SwitchRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'PictureChoice':
+                    return <PictureChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+
+                // Complex Question
                 case 'Comprehension':
                     return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 case 'Categorize':
@@ -113,19 +140,20 @@ const FormRenderer = () => {
                 case 'Cloze':
                     return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 
-                // --- Add other question types here ---
-
                 default:
                     return null;
                 }
             })}
         </div>
 
-        <div className="mt-12 text-center">
-          <button onClick={handleSubmit} className={theme.button} disabled={loading}>
-            {loading ? 'Submitting...' : 'Submit Form'}
-          </button>
-        </div>
+        {/* Only show submit button if there are questions to answer */}
+        {questionsToAnswer.length > 0 && (
+          <div className="mt-12 text-center">
+            <button onClick={handleSubmit} className={theme.button} disabled={loading}>
+              {loading ? 'Submitting...' : 'Submit Form'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

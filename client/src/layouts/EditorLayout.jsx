@@ -9,13 +9,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import HorizontalNavbar from '../components/HorizontalNavbar'; 
 import EditorSidebar from '../components/FormCreator/EditorSidebar';
 
-// Import Builder Components
+// Import ALL Builder Components
 import ComprehensionBuilder from '../components/builder/ComprehensionBuilder';
 import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
 import HeadingBuilder from '../components/builder/HeadingBuilder';
 import ParagraphBuilder from '../components/builder/ParagraphBuilder';
 import BannerBuilder from '../components/builder/BannerBuilder';
+import ShortAnswerBuilder from '../components/builder/ShortAnswerBuilder';
+import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder';
+import EmailBuilder from '../components/builder/EmailBuilder';
+import CheckboxBuilder from '../components/builder/CheckboxBuilder';
+import DropdownBuilder from '../components/builder/DropdownBuilder';
+import SwitchBuilder from '../components/builder/SwitchBuilder';
+import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
 
 // IMPORT THEMES & THEME MODAL
 import { themes as themesObject } from '../themes'; 
@@ -128,7 +135,7 @@ const EditorLayout = () => {
     }
   };
 
-  // --- NEW: Add Simple Field Handler ---
+  // --- Add Simple Field Handler ---
   const handleAddSimpleField = async (fieldType) => {
     if (isNewForm) return alert("Please name your form first.");
     if (!user) return alert("You must be logged in.");
@@ -146,18 +153,47 @@ const EditorLayout = () => {
       case 'Banner':
         questionData.image = null; // Will be empty until user edits it
         break;
+      case 'ShortAnswer':
+        questionData.text = 'Short Answer Question';
+        break;
+      case 'Email':
+        questionData.text = 'Email';
+        break;
+      case 'MultipleChoice':
+        questionData.text = 'Multiple Choice Question';
+        questionData.options = ['Option 1', 'Option 2'];
+        questionData.correctAnswer = 'Option 1';
+        break;
+      case 'Checkbox':
+        questionData.text = 'Checkbox Question';
+        questionData.options = ['Option 1', 'Option 2'];
+        questionData.correctAnswers = ['Option 1'];
+        break;
+      case 'Dropdown':
+        questionData.text = 'Dropdown Question';
+        questionData.options = ['Option 1', 'Option 2'];
+        questionData.correctAnswer = 'Option 1';
+        break;
+      case 'Switch':
+        questionData.text = 'Do you agree?';
+        break;
+      case 'PictureChoice':
+        questionData.text = 'Which one is correct?';
+        questionData.options = [null, null]; // Start with 2 empty image slots
+        questionData.correctAnswer = null;
+        break;
     }
 
     try {
       await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions`, questionData);
       await refetchForm(formId);
-      // Scroll to the bottom of the page
       window.scrollTo(0, document.body.scrollHeight);
     } catch (err) {
       alert("Error: Could not add the new field.");
       console.error(err);
     }
   };
+
 
   // --- Delete Question Logic ---
   const handleDeleteQuestion = async (questionId) => {
@@ -234,6 +270,20 @@ const EditorLayout = () => {
         return <ParagraphBuilder {...builderProps} />;
       case 'Banner':
         return <BannerBuilder {...builderProps} />;
+      case 'ShortAnswer':
+        return <ShortAnswerBuilder {...builderProps} />;
+      case 'Email':
+        return <EmailBuilder {...builderProps} />;
+      case 'MultipleChoice':
+        return <MultipleChoiceBuilder {...builderProps} />;
+      case 'Checkbox':
+        return <CheckboxBuilder {...builderProps} />;
+      case 'Dropdown':
+        return <DropdownBuilder {...builderProps} />;
+      case 'Switch':
+        return <SwitchBuilder {...builderProps} />;
+      case 'PictureChoice':
+        return <PictureChoiceBuilder {...builderProps} />;
 
       default:
         return null;
@@ -254,7 +304,7 @@ const EditorLayout = () => {
     handleSaveAndGoToDashboard, 
     handleSaveAndPreview,
     setIsThemeModalOpen,
-    refetchForm, // Pass refetchForm
+    refetchForm,
   };
 
   return (
