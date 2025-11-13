@@ -1,7 +1,7 @@
 // src/components/renderer/ComprehensionRenderer.jsx
 import { useState } from 'react';
 
-const ComprehensionRenderer = ({ question, onAnswerChange }) => {
+const ComprehensionRenderer = ({ question, onAnswerChange, theme }) => {
   const [selectedAnswerIndices, setSelectedAnswerIndices] = useState({});
 
   const handleSelection = (mcqId, optionIndex, optionText) => {
@@ -20,23 +20,27 @@ const ComprehensionRenderer = ({ question, onAnswerChange }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+    // --- APPLY THEME CARD ---
+    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg}`}>
       {question.image && <img src={question.image} alt="Question visual" className="w-full h-48 object-cover rounded-md mb-6" />}
-      <h3 className="text-2xl font-bold mb-4 text-gray-900">Reading Comprehension</h3>
+      {/* --- APPLY THEME TEXT --- */}
+      <h3 className={`text-2xl font-bold mb-4 ${theme.text}`}>Reading Comprehension</h3>
       
-      <div className="prose max-w-none bg-gray-50 p-4 rounded-md border border-gray-200 mb-6">
-        <p className="text-gray-700">{question.comprehensionPassage}</p>
+      {/* --- Use theme.input for passage background, theme.secondaryText for text --- */}
+      <div className={`prose max-w-none p-4 rounded-md border border-gray-500/20 mb-6 ${theme.input} bg-opacity-30`}>
+        <p className={theme.secondaryText}>{question.comprehensionPassage}</p>
       </div>
 
       <div className="space-y-6">
         {question.mcqs.map((mcq) => (
-          <div key={mcq._id} className="border-t border-gray-200 pt-4">
-            <p className="font-semibold text-lg mb-3 text-gray-800">{mcq.questionText}</p>
+          <div key={mcq._id} className="border-t border-gray-500/20 pt-4">
+            {/* --- APPLY THEME TEXT --- */}
+            <p className={`font-semibold text-lg mb-3 ${theme.text}`}>{mcq.questionText}</p>
             <div className="space-y-2">
               {mcq.options.map((optionText, optIndex) => {
                 const uniqueId = `mcq-option-${mcq._id}-${optIndex}`;
                 return (
-                  <label key={uniqueId} htmlFor={uniqueId} className="flex items-center p-3 rounded-md hover:bg-gray-100 cursor-pointer transition-colors">
+                  <label key={uniqueId} htmlFor={uniqueId} className="flex items-center p-3 rounded-md hover:bg-gray-500/10 cursor-pointer transition-colors">
                     <input
                       id={uniqueId}
                       type="radio"
@@ -44,9 +48,11 @@ const ComprehensionRenderer = ({ question, onAnswerChange }) => {
                       value={optIndex}
                       checked={selectedAnswerIndices[mcq._id] === optIndex}
                       onChange={() => handleSelection(mcq._id, optIndex, optionText)}
-                      className="mr-4 h-5 w-5 bg-gray-100 border-gray-300 text-blue-600 focus:ring-blue-500"
+                      // --- APPLY THEME RADIO ---
+                      className={`mr-4 h-5 w-5 ${theme.radio}`}
                     />
-                    <span className="text-gray-700">{optionText}</span>
+                    {/* --- APPLY THEME SECONDARY TEXT --- */}
+                    <span className={theme.secondaryText}>{optionText}</span>
                   </label>
                 );
               })}

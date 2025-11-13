@@ -6,6 +6,8 @@ import { useUser } from '@clerk/clerk-react';
 import ComprehensionRenderer from '../components/renderer/ComprehensionRenderer';
 import CategorizeRenderer from '../components/renderer/CategorizeRenderer';
 import ClozeRenderer from '../components/renderer/ClozeRenderer';
+// --- 1. IMPORT THE THEMES OBJECT ---
+import { themes as themesObject } from '../themes';
 
 const FormRenderer = () => {
   const { formId } = useParams();
@@ -40,6 +42,7 @@ const FormRenderer = () => {
       return;
     }
     try {
+      setLoading(true); // Set loading state
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/responses`, {
         formId,
         answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
@@ -56,18 +59,24 @@ const FormRenderer = () => {
 
     } catch (err) {
       alert('Error submitting form. Please try again.');
+    } finally {
+        setLoading(false); // Unset loading state
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-800 text-xl">Loading Form...</div>;
+  if (loading && !form) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-800 text-xl">Loading Form...</div>;
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-500 text-xl">{error}</div>;
   if (!form) return null;
 
+  // --- 2. GET THE CURRENT THEME ---
+  const theme = themesObject[form.theme] || themesObject['Default'];
+
   return (
-    <div className="min-h-screen text-gray-800 py-16 px-4 bg-[#f8f7f4] bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]">
+    // --- 3. APPLY THEME BACKGROUND ---
+    <div className={`min-h-screen py-16 px-4 transition-colors duration-300 ${theme.background}`}>
       <div className="max-w-4xl mx-auto">
-        {/* The blue top border has been removed from this card */}
-        <div className="bg-white p-8 rounded-lg shadow-md mb-10 text-center border border-gray-200">
+        {/* --- 4. APPLY THEME CARD AND TEXT STYLES --- */}
+        <div className={`p-8 rounded-lg shadow-md mb-10 text-center ${theme.cardBg}`}>
           {form.headerImage && (
             <img 
               src={form.headerImage} 
@@ -75,18 +84,19 @@ const FormRenderer = () => {
               className="w-full h-56 object-cover rounded-md mb-8" 
             />
           )}
-          <h1 className="text-4xl font-bold text-gray-900">{form.title}</h1>
+          <h1 className={`text-4xl font-bold ${theme.text}`}>{form.title}</h1>
         </div>
         
         <div className="space-y-8">
             {form.questions.map(question => {
+                // --- 5. PASS THEME PROP TO RENDERERS ---
                 switch (question.type) {
                 case 'Comprehension':
-                    return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} />;
+                    return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 case 'Categorize':
-                    return <CategorizeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} />;
+                    return <CategorizeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 case 'Cloze':
-                    return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} />;
+                    return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 default:
                     return null;
                 }
@@ -94,8 +104,9 @@ const FormRenderer = () => {
         </div>
 
         <div className="mt-12 text-center">
-          <button onClick={handleSubmit} className="glow-btn text-xl">
-            Submit Form
+          {/* --- 6. APPLY THEME BUTTON STYLE --- */}
+          <button onClick={handleSubmit} className={theme.button} disabled={loading}>
+            {loading ? 'Submitting...' : 'Submit Form'}
           </button>
         </div>
       </div>

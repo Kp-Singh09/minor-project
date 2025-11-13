@@ -1,21 +1,9 @@
 // client/src/components/FormCreator/ChooseTheme.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+// --- IMPORT THEMES FROM YOUR NEW FILE ---
+import { themesArray } from '../../themes';
 
-// Mock themes
-const themes = [
-    { name: 'Default', preview: 'bg-gradient-to-br from-blue-400 to-indigo-600', text: 'text-white' },
-    { name: 'Charcoal', preview: 'bg-gray-800', text: 'text-gray-200' },
-    { name: 'Bold', preview: 'bg-red-500', text: 'text-white' },
-    { name: 'Navy Pop', preview: 'bg-blue-900', text: 'text-yellow-300' },
-    { name: 'Forest Green', preview: 'bg-green-700', text: 'text-green-100' },
-    { name: 'Sunset', preview: 'bg-gradient-to-br from-orange-400 to-pink-500', text: 'text-white' },
-    { name: 'Lavender', preview: 'bg-purple-200', text: 'text-purple-800' },
-    { name: 'Minimal', preview: 'bg-white border-2 border-gray-300', text: 'text-gray-800' },
-];
-
-// --- UPDATED ThemeCard ---
-// Made this wider (w-full) and a bit shorter (h-24) to match the new sidebar
 const ThemeCard = ({ theme, isSelected, onClick }) => (
     <motion.div
         whileHover={{ scale: 1.02, x: 5 }}
@@ -24,34 +12,57 @@ const ThemeCard = ({ theme, isSelected, onClick }) => (
             ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2' : 'border border-gray-300'}`}
         onClick={onClick}
     >
+        {/* --- Use theme.preview for the background --- */}
         <div className={`absolute inset-0 ${theme.preview}`}></div>
         <div className="relative p-3">
-            <p className={`font-semibold ${theme.text}`}>{theme.name}</p>
+            {/* --- Use theme.previewText for the text --- */}
+            <p className={`font-semibold ${theme.previewText}`}>{theme.name}</p>
         </div>
     </motion.div>
 );
 
 const ChooseTheme = ({ onSelectTheme, onBack }) => {
-    const [currentTheme, setCurrentTheme] = useState(themes[0]);
+    // --- Use the imported themesArray ---
+    const [currentTheme, setCurrentTheme] = useState(themesArray[0]);
 
     const handleCreateForm = () => {
         onSelectTheme(currentTheme);
     };
 
+    // --- Helper to get contrasting button text for the preview ---
+    const getPreviewButtonText = (themeName) => {
+        switch(themeName) {
+            case 'Navy Pop': return 'text-blue-900';
+            default: return 'text-white';
+        }
+    };
+    
+    // --- Helper to get button style for the preview ---
+     const getPreviewButtonBg = (themeName) => {
+        switch(themeName) {
+            case 'Default': return 'bg-blue-600';
+            case 'Charcoal': return 'bg-blue-600';
+            case 'Bold': return 'bg-red-600';
+            case 'Navy Pop': return 'bg-yellow-400';
+            case 'Forest Green': return 'bg-green-600';
+            case 'Sunset': return 'bg-gradient-to-r from-orange-500 to-pink-600';
+            case 'Lavender': return 'bg-purple-600';
+            case 'Minimal': return 'bg-gray-800';
+            default: return 'bg-blue-600';
+        }
+    };
+
     return (
-        // --- UPDATED MAIN CONTAINER ---
-        // 1. Set max width and height for the modal
-        // 2. Use flex-col to separate main content from buttons
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             
-            {/* --- TOP CONTENT AREA (SCROLLABLE) --- */}
             <div className="flex-grow flex overflow-hidden"> 
                 
                 {/* Theme Selector Sidebar */}
                 <div className="w-72 p-6 border-r border-gray-200 overflow-y-auto flex-shrink-0">
                     <h3 className="text-2xl font-bold text-gray-900 mb-6">Choose a theme</h3>
                     <div className="space-y-5">
-                        {themes.map((theme) => (
+                        {/* --- Map over themesArray --- */}
+                        {themesArray.map((theme) => (
                             <ThemeCard
                                 key={theme.name}
                                 theme={theme}
@@ -62,19 +73,33 @@ const ChooseTheme = ({ onSelectTheme, onBack }) => {
                     </div>
                 </div>
 
-                {/* Theme Preview Area */}
-                <div className="flex-grow p-8 flex flex-col justify-between overflow-y-auto" style={{ background: currentTheme.preview }}>
-                    {/* Mockup Preview */}
-                    <div className="flex flex-col items-center justify-center p-8 rounded-xl min-h-[400px]">
-                        <h4 className={`text-3xl font-bold mb-6 ${currentTheme.text}`}>Example form with theme</h4>
-                        <div className="bg-white bg-opacity-20 backdrop-filter backdrop-blur-sm p-6 rounded-lg w-full max-w-md shadow-inner">
-                            <label className={`block text-md font-medium mb-1 ${currentTheme.text}`}>What is your email?</label>
-                            <input type="email" placeholder="email@example.com" className="w-full p-3 rounded-md bg-white bg-opacity-10 border border-white border-opacity-30 text-white placeholder-gray-300 focus:outline-none" disabled />
-                            {/* ... other example fields ... */}
-                            <button className="mt-6 w-full bg-yellow-400 text-blue-900 font-bold py-3 rounded-lg shadow-md" disabled>
-                                Submit form
-                            </button>
-                        </div>
+                {/* --- DYNAMIC THEME PREVIEW AREA --- */}
+                <div className={`flex-grow p-8 flex flex-col items-center justify-center overflow-y-auto transition-all duration-300 ${currentTheme.preview}`}>
+                    <h4 className={`text-3xl font-bold mb-6 ${currentTheme.previewText}`}>Example form with theme</h4>
+                    
+                    {/* Mockup Card */}
+                    <div className={`p-6 rounded-lg w-full max-w-md shadow-lg
+                        ${currentTheme.name === 'Minimal' ? 'bg-white border border-gray-300' : 'bg-white bg-opacity-20 backdrop-filter backdrop-blur-sm border border-white border-opacity-30'}
+                    `}>
+                        <label className={`block text-md font-medium mb-1 
+                            ${currentTheme.name === 'Minimal' ? 'text-gray-700' : currentTheme.previewText}
+                        `}>
+                            What is your email?
+                        </label>
+                        <input 
+                            type="email" 
+                            placeholder="email@example.com" 
+                            className={`w-full p-3 rounded-md focus:outline-none
+                                ${currentTheme.name === 'Minimal' ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-white bg-opacity-10 border border-white border-opacity-30 text-white placeholder-gray-300'}
+                            `} 
+                            disabled 
+                        />
+                        <button 
+                            className={`mt-6 w-full font-bold py-3 rounded-lg shadow-md ${getPreviewButtonBg(currentTheme.name)} ${getPreviewButtonText(currentTheme.name)}`} 
+                            disabled
+                        >
+                            Submit form
+                        </button>
                     </div>
                 </div>
             </div>

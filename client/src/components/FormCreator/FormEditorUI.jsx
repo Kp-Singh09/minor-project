@@ -3,12 +3,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useOutletContext } from 'react-router-dom';
 
-// --- A new component to render the question cards ---
-const QuestionCard = ({ question, index, onEdit, onDelete }) => {
+// This card component needs to be theme-aware
+const QuestionCard = ({ question, index, onEdit, onDelete, theme }) => {
     return (
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md w-full">
+        // --- UPDATED: Use theme.input and theme.text ---
+        <div className={`p-6 rounded-lg w-full ${theme.input} bg-opacity-30 border border-gray-500/20`}>
             <div className="flex justify-between items-center">
-                <p className="text-lg font-semibold text-gray-800">
+                <p className={`text-lg font-semibold ${theme.text}`}>
                     Question {index + 1}: {question.type}
                 </p>
                 <div className="flex gap-2">
@@ -32,7 +33,6 @@ const QuestionCard = ({ question, index, onEdit, onDelete }) => {
 
 
 const FormEditorUI = () => {
-    // --- Get all state and functions from EditorLayout ---
     const { 
         form, 
         loading, 
@@ -42,9 +42,9 @@ const FormEditorUI = () => {
         renderBuilder, 
         setEditingQuestion,
         handleDeleteQuestion,
-        isNewForm, // 👈 NEW
-        handleSaveAndGoToDashboard, // 👈 NEW
-        handleSaveAndPreview // 👈 NEW
+        isNewForm,
+        handleSaveAndGoToDashboard,
+        handleSaveAndPreview
     } = useOutletContext();
 
     if (loading) {
@@ -55,24 +55,21 @@ const FormEditorUI = () => {
         return <div className="p-8 text-center text-red-500">Could not load form.</div>;
     }
 
-    // Find the theme details
+    // This line is correct
     const selectedTheme = themes[form.theme] || themes['Default'];
 
-    // --- DEFINE GRID BACKGROUND ---
-    const gridBackground = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
+    // --- REMOVED: const gridBackground = "..." ---
 
     return (
-        // The parent div now applies the grid background
-        // 👈 REMOVED pb-24, padding is now on the canvas itself
+        // --- UPDATED: Apply theme background ---
         <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
-            className={`p-8 min-h-full ${gridBackground}`} 
+            className={`p-8 min-h-full ${selectedTheme.background}`} 
         >
-            {/* --- Main Canvas --- */}
-            {/* 👈 ADDED pb-8 to canvas for internal spacing */}
+            {/* --- Main Canvas: Apply theme card and text styles --- */}
             <div 
-                className="w-full max-w-2xl min-h-[600px] rounded-lg shadow-xl border border-gray-300 flex flex-col items-center gap-6 p-8 mx-auto bg-white pb-8"
+                className={`w-full max-w-2xl min-h-[600px] rounded-lg shadow-xl border border-gray-300 flex flex-col items-center gap-6 p-8 mx-auto ${selectedTheme.cardBg} ${selectedTheme.text}`}
             >
                 {/* --- Render Existing Questions --- */}
                 {form.questions && form.questions.length > 0 ? (
@@ -83,10 +80,12 @@ const FormEditorUI = () => {
                             index={index}
                             onEdit={setEditingQuestion}
                             onDelete={handleDeleteQuestion}
+                            theme={selectedTheme} // --- UPDATED: Pass theme ---
                         />
                     ))
                 ) : (
-                    <p className={`text-center ${selectedTheme.text} opacity-60`}>
+                    // --- UPDATED: Apply theme secondary text color ---
+                    <p className={`text-center ${selectedTheme.secondaryText} opacity-60`}>
                         Drag and drop questions from the left-hand side.
                     </p>
                 )}
@@ -99,8 +98,7 @@ const FormEditorUI = () => {
                 )}
             </div>
 
-            {/* --- 👈 NEW: Buttons container --- */}
-            {/* This is now INSIDE the scrolling grid div, but AFTER the white canvas div */}
+            {/* --- Buttons container --- */}
             <div className="w-full max-w-2xl mx-auto flex justify-end gap-4 mt-8">
                 <motion.button
                     whileHover={{ scale: 1.05 }}

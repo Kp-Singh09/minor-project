@@ -14,16 +14,8 @@ import ComprehensionBuilder from '../components/builder/ComprehensionBuilder';
 import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
 
-// --- UPDATED THEMES OBJECT ---
-const themes = {
-    'Default': { name: 'Default', background: 'linear-gradient(to bottom right, #60a5fa, #3b82f6)', text: 'text-white' },
-    'Charcoal': { name: 'Charcoal', background: '#1f2937', text: 'text-gray-200' },
-    'Bold': { name: 'Bold', background: '#ef4444', text: 'text-white' },
-    'Navy Pop': { name: 'Navy Pop', background: '#1e3a8a', text: 'text-yellow-300' },
-    'Forest Green': { name: 'Forest Green', background: '#15803d', text: 'text-green-100' },
-    'Sunset': { name: 'Sunset', background: 'linear-gradient(to bottom right, #fb923c, #ec4899)', text: 'text-white' },
-    'Minimal': { name: 'Minimal', background: '#ffffff', text: 'text-gray-800' }
-};
+// --- IMPORT THEMES FROM THE NEW FILE ---
+import { themes as themesObject } from '../themes'; 
 
 const EditorLayout = () => {
   const { formId } = useParams(); 
@@ -142,8 +134,8 @@ const EditorLayout = () => {
       }
     }
   };
-
-  // --- Save and go to Dashboard ---
+  
+    // --- Save and go to Dashboard ---
   const handleSaveAndGoToDashboard = async () => {
     if (isNewForm) return; 
     if (isNamingModalOpen) {
@@ -190,15 +182,15 @@ const EditorLayout = () => {
   const outletContext = {
     form,
     loading: loading || isNamingModalOpen, 
-    themes, 
+    themes: themesObject, // <-- PASS THE IMPORTED THEMES
     activeBuilder,
     editingQuestion, 
     renderBuilder, 
     setEditingQuestion, 
     handleDeleteQuestion,
-    isNewForm, // 👈 PASS isNewForm
-    handleSaveAndGoToDashboard, // 👈 PASS handler
-    handleSaveAndPreview, // 👈 PASS handler
+    isNewForm, 
+    handleSaveAndGoToDashboard, 
+    handleSaveAndPreview, 
   };
 
   return (
@@ -216,17 +208,13 @@ const EditorLayout = () => {
 
       <EditorSidebar setActiveBuilder={setActiveBuilder} /> 
       
-      {/* This 'main' element is back to being simple */}
       <main className="ml-0 md:ml-80 flex flex-col h-screen">
         <div className="h-20 flex-shrink-0" />
         
-        {/* This 'div' is the main scrolling area */}
         <div className="flex-grow overflow-y-auto">
-          {/* Outlet renders FormEditorUI, which now contains the buttons */}
           <Outlet context={outletContext} />
         </div>
         
-        {/* --- 👈 BUTTON CONTAINER REMOVED FROM HERE --- */}
       </main>
 
       {/* --- "Name your form" Modal --- */}
