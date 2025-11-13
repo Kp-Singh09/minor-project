@@ -12,6 +12,7 @@ import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import BannerRenderer from '../components/renderer/BannerRenderer';
 import ShortAnswerRenderer from '../components/renderer/ShortAnswerRenderer';
+import LongAnswerRenderer from '../components/renderer/LongAnswerRenderer'; // <-- ADDED
 import MultipleChoiceRenderer from '../components/renderer/MultipleChoiceRenderer';
 import EmailRenderer from '../components/renderer/EmailRenderer';
 import CheckboxRenderer from '../components/renderer/CheckboxRenderer';
@@ -31,7 +32,7 @@ const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgb
 // --- Theme Switcher Component ---
 const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
   return (
-    <div className="fixed top right-4 z-50">
+    <div className="fixed top-4 right-4 z-50">
       <select
         value={currentThemeName}
         onChange={(e) => onThemeChange(e.target.value)}
@@ -160,6 +161,8 @@ const FormRenderer = () => {
                 // Simple Input
                 case 'ShortAnswer':
                     return <ShortAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'LongAnswer': // <-- ADDED
+                    return <LongAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 case 'Email':
                     return <EmailRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
                 case 'MultipleChoice':

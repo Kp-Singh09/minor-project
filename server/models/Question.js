@@ -10,37 +10,26 @@ const questionSchema = new mongoose.Schema({
       'Categorize', 'Cloze', 'Comprehension', 
       // Simple Display Types
       'Heading', 'Paragraph', 'Banner',
-      // --- NEW: Simple Input Types ---
+      // Simple Input Types
       'ShortAnswer', 'Email', 'MultipleChoice', 'Checkbox', 
-      'Dropdown', 'Switch', 'PictureChoice'
+      'Dropdown', 'Switch', 'PictureChoice',
+      'LongAnswer' // <-- ADD THIS LINE
     ]
   },
-  // Used by Heading, Paragraph, ShortAnswer, Email
+  // Used by Heading, Paragraph, ShortAnswer, Email, LongAnswer
   text: { type: String, default: '' },
   
-  // Used by Banner, PictureChoice
+  // ... (rest of the file is unchanged)
   image: { type: String, default: null },
-
-  // Used by MultipleChoice, Checkbox, Dropdown, PictureChoice, Cloze
   options: [{ type: String }], 
-  
-  // Used by MultipleChoice, Dropdown, PictureChoice
   correctAnswer: { type: String },
-
-  // Used by Checkbox
   correctAnswers: [{ type: String }],
-
-  // --- Fields for 'Categorize' type ---
   categories: [{ type: String }],
   items: [{
     text: String,
     category: String 
   }],
-
-  // --- Fields for 'Cloze' type ---
   passage: { type: String }, 
-
-  // --- Fields for 'Comprehension' type ---
   comprehensionPassage: { type: String }, 
   mcqs: [{
     questionText: String,

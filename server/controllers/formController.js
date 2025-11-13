@@ -1,17 +1,19 @@
 // server/controllers/formController.js
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
-import Response from '../models/Response.js';
+import Response from '../models/Response.js'; // Import the Response model
 
-// ... (updateQuestion, deleteQuestionFromForm, deleteForm, getFormsByUser, updateForm... keep all of them as they are) ...
 export const updateQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
         const questionData = req.body;
+
         const updatedQuestion = await Question.findByIdAndUpdate(questionId, questionData, { new: true });
+
         if (!updatedQuestion) {
             return res.status(404).json({ message: 'Question not found' });
         }
+
         res.status(200).json(updatedQuestion);
     } catch (error) {
         res.status(500).json({ message: 'Server Error: Could not update question', error });
@@ -21,8 +23,13 @@ export const updateQuestion = async (req, res) => {
 export const deleteQuestionFromForm = async (req, res) => {
     try {
         const { formId, questionId } = req.params;
+
+        // First, pull the question reference from the form
         await Form.findByIdAndUpdate(formId, { $pull: { questions: questionId } });
+
+        // Then, delete the question document itself
         await Question.findByIdAndDelete(questionId);
+
         res.status(200).json({ message: 'Question deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Server Error: Could not delete question', error });
@@ -33,14 +40,22 @@ export const deleteForm = async (req, res) => {
     try {
         const { id } = req.params;
         const form = await Form.findById(id);
+
         if (!form) {
             return res.status(404).json({ message: 'Form not found' });
         }
+
+        // Delete all questions associated with the form
         if (form.questions && form.questions.length > 0) {
             await Question.deleteMany({ _id: { $in: form.questions } });
         }
+
+        // Delete all responses associated with the form
         await Response.deleteMany({ formId: id });
+
+        // Finally, delete the form itself
         await Form.findByIdAndDelete(id);
+
         res.status(200).json({ message: 'Form and all associated data deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Server Error: Could not delete form', error });
@@ -56,6 +71,9 @@ export const getFormsByUser = async (req, res) => {
   }
 };
 
+// @desc    Update form title, header image, or theme
+// @route   PUT /api/forms/:id
+// @access  Private
 export const updateForm = async (req, res) => {
     try {
         const { id } = req.params;
@@ -67,8 +85,14 @@ export const updateForm = async (req, res) => {
         if (title) form.title = title;
         if (headerImage) form.headerImage = headerImage;
         if (theme) form.theme = theme;
-        const updatedForm = await form.save();
+        
+        await form.save();
+        
+        // --- THIS IS THE FIX ---
+        // Repopulate the form with question details before sending back
+        const updatedForm = await Form.findById(id).populate('questions');
         res.status(200).json(updatedForm);
+        // --- END OF FIX ---
     } catch (error) {
         res.status(500).json({ message: 'Server Error: Could not update form', error });
     }
@@ -77,7 +101,6 @@ export const updateForm = async (req, res) => {
 // @desc    Create a new form
 // @route   POST /api/forms
 // @access  Private
-// --- V V V THIS IS THE MODIFIED FUNCTION V V V ---
 export const createForm = async (req, res) => {
   try {
     // 1. Destructure all possible fields
@@ -124,19 +147,20 @@ export const createForm = async (req, res) => {
       newForm.questions = questionIds;
     }
 
-    // 5. Save the new form (with or without questions)
-    await newForm.save();
+    // --- THIS IS THE FIX ---
+    // 5. Save the new form
+    const savedForm = await newForm.save();
     
-    // 6. Return the new form
-    res.status(201).json(newForm); 
+    // 6. Populate and return the new form
+    const populatedForm = await Form.findById(savedForm._id).populate('questions');
+    res.status(201).json(populatedForm);
+    // --- END OF FIX ---
     
   } catch (error) {
     console.error("Error creating form:", error);
     res.status(500).json({ message: 'Server Error: Could not create form', error: error.message });
   }
 };
-// --- ^ ^ ^ THIS IS THE MODIFIED FUNCTION ^ ^ ^ ---
-
 
 export const addQuestionToForm = async (req, res) => {
     try {

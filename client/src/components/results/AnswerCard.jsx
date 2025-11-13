@@ -3,11 +3,12 @@ import React from 'react';
 
 // --- RENDER FUNCTIONS FOR EACH QUESTION TYPE ---
 
-// (Comprehension, Categorize, and Cloze are unchanged)
+// (ComprehensionBreakdown is safe)
 const ComprehensionBreakdown = ({ question, userAnswer }) => (
   <div className="space-y-3">
     {question.mcqs.map((mcq, index) => {
-      const userChoice = userAnswer[mcq._id.toString()] || "No answer";
+      // This || "No answer" already handles undefined answers
+      const userChoice = (userAnswer && userAnswer[mcq._id.toString()]) || "No answer";
       const isMcqCorrect = userChoice === mcq.correctAnswer;
       return (
         <div key={mcq._id} className="text-sm">
@@ -20,16 +21,22 @@ const ComprehensionBreakdown = ({ question, userAnswer }) => (
   </div>
 );
 
+// --- FIX: Make CategorizeBreakdown safe ---
 const CategorizeBreakdown = ({ question, userAnswer }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
     <div>
       <h5 className="font-semibold text-gray-800 mb-2">Your Answer:</h5>
-      {Object.entries(userAnswer).map(([category, items]) => (
+      {/* Add (userAnswer || {}) to prevent crash if userAnswer is undefined */}
+      {Object.entries(userAnswer || {}).map(([category, items]) => (
         <div key={category}>
             <p className="text-gray-700 font-medium">{category}:</p>
             <p className="pl-4 text-gray-600">{Array.isArray(items) && items.length > 0 ? items.join(', ') : 'Empty'}</p>
         </div>
       ))}
+      {/* Show "No Answer" if the object is empty */}
+      {(!userAnswer || Object.keys(userAnswer).length === 0) && (
+        <p className="pl-4 text-gray-600">No answer</p>
+      )}
     </div>
     <div>
       <h5 className="font-semibold text-green-700 mb-2">Correct Answer:</h5>
@@ -43,16 +50,23 @@ const CategorizeBreakdown = ({ question, userAnswer }) => (
   </div>
 );
 
+// --- FIX: Make ClozeBreakdown safe ---
 const ClozeBreakdown = ({ question, userAnswer }) => (
     <div className="text-sm">
         <h5 className="font-semibold text-gray-800 mb-2">Your Answer:</h5>
-        <p className="text-gray-700">{Object.values(userAnswer).join(', ')}</p>
+        {/* Add (userAnswer || {}) to prevent crash. This was the error in your screenshot. */}
+        <p className="text-gray-700">
+          {(userAnswer && Object.keys(userAnswer).length > 0)
+            ? Object.values(userAnswer).join(', ')
+            : "No answer"
+          }
+        </p>
         <h5 className="font-semibold text-green-700 my-2">Correct Answer:</h5>
         <p className="text-green-600">{question.options.join(', ')}</p>
     </div>
 );
 
-// --- NEW: Breakdown for simple choice questions ---
+// (SimpleBreakdown is safe)
 const SimpleBreakdown = ({ question, userAnswer, isCorrect }) => (
   <div className="text-sm">
     <p className={`text-gray-700 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
@@ -66,7 +80,7 @@ const SimpleBreakdown = ({ question, userAnswer, isCorrect }) => (
   </div>
 );
 
-// --- NEW: Breakdown for Checkbox questions ---
+// (CheckboxBreakdown is safe)
 const CheckboxBreakdown = ({ question, userAnswer, isCorrect }) => (
   <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
@@ -90,11 +104,15 @@ const CheckboxBreakdown = ({ question, userAnswer, isCorrect }) => (
   </div>
 );
 
-// --- NEW: Breakdown for non-scorable questions ---
+// --- FIX: Make SubmissionOnlyBreakdown safe ---
 const SubmissionOnlyBreakdown = ({ question, userAnswer }) => (
   <div className="text-sm">
     <p className="text-gray-700">
-      <strong>Your Submission:</strong> {userAnswer.toString()}
+      <strong>Your Submission:</strong>
+      {/* Check if userAnswer exists before calling toString() */}
+      <span className="block whitespace-pre-wrap mt-1">
+        {userAnswer ? userAnswer.toString() : "No answer"}
+      </span>
     </p>
   </div>
 );
@@ -102,6 +120,18 @@ const SubmissionOnlyBreakdown = ({ question, userAnswer }) => (
 
 // --- Updated AnswerCard Component ---
 const AnswerCard = ({ answerData, index }) => {
+  // Graceful check in case questionId is null
+  if (!answerData || !answerData.questionId) {
+    return (
+      <div className="bg-white p-6 rounded-lg border-l-4 border-red-500 shadow-sm">
+        <h3 className="text-lg font-semibold text-red-700">
+            Question #{index + 1}: Error
+        </h3>
+        <p className="text-red-600">Could not load question data. It may have been deleted.</p>
+      </div>
+    );
+  }
+
   const { questionId, answer, points } = answerData;
 
   // Define which types are scorable
@@ -137,7 +167,7 @@ const AnswerCard = ({ answerData, index }) => {
 
   const renderBreakdown = () => {
     switch (questionId.type) {
-      // Complex (already working)
+      // Complex
       case 'Comprehension':
         return <ComprehensionBreakdown question={questionId} userAnswer={answer} />;
       case 'Categorize':
@@ -145,7 +175,7 @@ const AnswerCard = ({ answerData, index }) => {
       case 'Cloze':
         return <ClozeBreakdown question={questionId} userAnswer={answer} />;
       
-      // Simple Scorable (NEW)
+      // Simple Scorable
       case 'MultipleChoice':
       case 'Dropdown':
       case 'PictureChoice':
@@ -153,8 +183,9 @@ const AnswerCard = ({ answerData, index }) => {
       case 'Checkbox':
         return <CheckboxBreakdown question={questionId} userAnswer={answer} isCorrect={wasCorrect} />;
 
-      // Simple Non-Scorable (NEW)
+      // Simple Non-Scorable
       case 'ShortAnswer':
+      case 'LongAnswer': // This is now safe
       case 'Email':
       case 'Switch':
         return <SubmissionOnlyBreakdown question={questionId} userAnswer={answer} />;

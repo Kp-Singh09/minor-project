@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 
-// --- Card for Simple Text (Heading, Paragraph, ShortAnswer, Email, Switch) ---
+// --- Card for Simple Text (Heading, Paragraph, ShortAnswer, Email, Switch, LongAnswer) ---
 const SimpleTextCard = ({ question, onEdit, onDelete, theme }) => {
   let content = null;
   switch (question.type) {
@@ -19,6 +19,14 @@ const SimpleTextCard = ({ question, onEdit, onDelete, theme }) => {
         <div>
           <p className={`font-semibold text-lg mb-2 ${theme.text}`}>{question.text}</p>
           <input type="text" disabled className={`w-full p-2 rounded-md ${theme.input} bg-opacity-50 border-none`} placeholder="Answer..." />
+        </div>
+      );
+      break;
+    case 'LongAnswer': // <-- ADDED
+      content = (
+        <div>
+          <p className={`font-semibold text-lg mb-2 ${theme.text}`}>{question.text}</p>
+          <textarea disabled className={`w-full p-2 rounded-md ${theme.input} bg-opacity-50 border-none`} rows="3" placeholder="Long answer..."></textarea>
         </div>
       );
       break;
@@ -211,11 +219,7 @@ const FormEditorUI = () => {
         return <div className="p-8 text-center text-red-500">Could not load form.</div>;
     }
 
-    // --- THIS IS THE FIX ---
-    // Make the fallback safer. It will try the form's theme, then 'Light', 
-    // then the very first theme in the object, just to be safe.
     const selectedTheme = themes[form.theme] || themes['Light'] || Object.values(themes)[0];
-    // --- END OF FIX ---
 
     return (
         <motion.div 
@@ -268,12 +272,22 @@ const FormEditorUI = () => {
                 {/* --- UPDATED: Render loop with switch statement --- */}
                 {form.questions && form.questions.length > 0 ? (
                     form.questions.map((q, index) => {
+                        if (!q) {
+                           // Add a check for null/undefined questions
+                           console.error("Encountered null question at index:", index);
+                           return (
+                               <div key={`error-${index}`} className="p-4 bg-red-100 text-red-700 rounded-md w-full">
+                                   Error: Question data is missing.
+                               </div>
+                           );
+                        }
                         switch (q.type) {
                             case 'Heading':
                             case 'Paragraph':
                             case 'ShortAnswer':
                             case 'Email':
                             case 'Switch':
+                            case 'LongAnswer': // <-- ADDED
                                 return <SimpleTextCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
                             
                             case 'MultipleChoice':
@@ -294,8 +308,8 @@ const FormEditorUI = () => {
                                 
                             default:
                                 return (
-                                    <div key={q._id} className="p-4 bg-red-100 text-red-700 rounded-md w-full">
-                                        Unsupported field type: {q.type}
+                                    <div key={q._id || `unknown-${index}`} className="p-4 bg-red-100 text-red-700 rounded-md w-full">
+                                        Unsupported field type: {q.type || "Unknown"}
                                     </div>
                                 );
                         }

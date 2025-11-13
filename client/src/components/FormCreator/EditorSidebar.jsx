@@ -1,5 +1,5 @@
 // client/src/components/FormCreator/EditorSidebar.jsx
-import React, { useState } from 'react'; // 1. Import useState
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom'; 
 
@@ -8,10 +8,12 @@ const fieldCategories = [
         name: "Frequently used",
         fields: [
             { icon: "📝", name: "Short answer", type: 'ShortAnswer' },
+            { icon: "📄", name: "Long answer", type: 'LongAnswer' }, // <-- ADD THIS LINE
             { icon: "✅", name: "Multiple choice", type: 'MultipleChoice' },
             { icon: "✉️", name: "Email input", type: 'Email' },
         ]
     },
+    // ... (rest of the categories are unchanged)
     {
         name: "Display text",
         fields: [
@@ -25,7 +27,6 @@ const fieldCategories = [
         fields: [
             { icon: "🔽", name: "Dropdown", type: 'Dropdown' },
             { icon: "🖼️", name: "Picture choice", type: 'PictureChoice' },
-            // { icon: "🔠", name: "Multiselect", type: 'Multiselect' }, // Re-add when ready
             { icon: "🎚️", name: "Switch", type: 'Switch' },
             { icon: "☑️", name: "Checkbox", type: 'Checkbox' },
         ]
@@ -40,6 +41,7 @@ const fieldCategories = [
     },
 ];
 
+// ... (FieldItem component is unchanged)
 const FieldItem = ({ icon, name, type, onClick }) => (
     <motion.div
         whileHover={{ scale: 1.05, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
@@ -52,9 +54,9 @@ const FieldItem = ({ icon, name, type, onClick }) => (
     </motion.div>
 );
 
+
 const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
     
-    // 2. Add state for the search term
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleFieldClick = (type) => {
@@ -71,6 +73,7 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
             case 'Paragraph':
             case 'Banner':
             case 'ShortAnswer':
+            case 'LongAnswer': // <-- ADD THIS LINE
             case 'MultipleChoice':
             case 'Email':
             case 'Dropdown':
@@ -89,17 +92,14 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
         }
     };
 
-    // 3. Create the filtering logic
+    // ... (rest of the component is unchanged)
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filteredFieldCategories = fieldCategories.map(category => {
-        // Filter fields within each category
         const filteredFields = category.fields.filter(field => 
             field.name.toLowerCase().includes(lowerSearchTerm)
         );
-        // Return the category with only the filtered fields
         return { ...category, fields: filteredFields };
     }).filter(category => 
-        // Hide the entire category if no fields match
         category.fields.length > 0
     );
 
@@ -115,7 +115,6 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
             
             <div className="p-4 overflow-y-auto">
                 <div className="mb-6">
-                    {/* 4. Wire up the input to the state */}
                     <input 
                         type="text" 
                         placeholder="Search fields" 
@@ -125,7 +124,6 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
                     />
                 </div>
 
-                {/* 5. Map over the NEW filtered list */}
                 {filteredFieldCategories.map((category, index) => (
                     <div key={index} className="mb-6">
                         <h3 className="text-md font-semibold text-sky-800 mb-3 border-b pb-2 border-sky-300/70">{category.name}</h3>
@@ -143,7 +141,6 @@ const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
                     </div>
                 ))}
 
-                {/* 6. Show a message if no results are found */}
                 {filteredFieldCategories.length === 0 && searchTerm && (
                     <div className="text-center text-gray-500 mt-6">
                         <p>No fields found for "{searchTerm}"</p>

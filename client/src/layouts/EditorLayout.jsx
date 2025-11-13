@@ -17,6 +17,7 @@ import HeadingBuilder from '../components/builder/HeadingBuilder';
 import ParagraphBuilder from '../components/builder/ParagraphBuilder';
 import BannerBuilder from '../components/builder/BannerBuilder';
 import ShortAnswerBuilder from '../components/builder/ShortAnswerBuilder';
+import LongAnswerBuilder from '../components/builder/LongAnswerBuilder'; // <-- ADDED
 import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder';
 import EmailBuilder from '../components/builder/EmailBuilder';
 import CheckboxBuilder from '../components/builder/CheckboxBuilder';
@@ -28,7 +29,7 @@ import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
 import { themes as themesObject } from '../themes'; 
 import ChooseTheme from '../components/FormCreator/ChooseTheme';
 
-// --- 1. IMPORT YOUR NEW TEMPLATES FILE ---
+// IMPORT TEMPLATES
 import { templates } from '../templates'; 
 
 const gridBackground = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
@@ -68,21 +69,19 @@ const EditorLayout = () => {
     if (isNewForm) {
       setLoading(false);
       
-      // --- 2. UPDATE this logic to check for a template title
       const templateId = searchParams.get('template');
       let initialTitle = 'Untitled Form';
       if (templateId && templates[templateId]) {
         initialTitle = templates[templateId].data.title; 
       }
       setTempTitle(initialTitle); 
-      // --- End of update ---
 
       setIsNamingModalOpen(true);
     } else {
       setIsNamingModalOpen(false);
       fetchForm(formId);
     }
-  }, [formId, isNewForm, navigate, searchParams]); // <-- Add searchParams as dependency
+  }, [formId, isNewForm, navigate, searchParams]);
 
   // --- Refetch form data ---
   const refetchForm = useCallback(async (idToFetch) => {
@@ -104,7 +103,6 @@ const EditorLayout = () => {
 
     try {
         if (isNewForm) {
-            // --- 3. UPDATE this logic to send template data
             const themeName = searchParams.get('theme') || 'Light';
             const templateId = searchParams.get('template');
             
@@ -115,28 +113,27 @@ const EditorLayout = () => {
                 theme: themeName,
             };
     
-            // If a template is specified, find it and add its questions
             if (templateId && templates[templateId]) {
                 const template = templates[templateId];
-                
-                // Use template title if user hasn't changed it from the default
                 if (newTitle === template.data.title) {
                     payload.title = template.data.title;
                 }
-                
-                payload.questions = template.data.questions; // Add questions to payload
+                payload.questions = template.data.questions;
             }
     
-            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, payload); // Send new payload
-            // --- End of update ---
-
+            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, payload);
+            
+            // This works because the server now sends back the populated form
             setForm(formResponse.data);
             setIsNamingModalOpen(false);
             navigate(`/editor/${formResponse.data._id}`, { replace: true });
         } else {
-            const updateResponse = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: newTitle });
-            setForm(updateResponse.data);
+            // --- THIS IS THE FIX ---
+            // When renaming, update and then refetch to get populated data
+            await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: newTitle });
+            await refetchForm(formId); // Refetch to get populated data
             setIsNamingModalOpen(false);
+            // --- END OF FIX ---
         }
     } catch (err) {
         console.error("Failed to save form title", err);
@@ -182,10 +179,13 @@ const EditorLayout = () => {
         questionData.text = 'This is a new paragraph. Click Edit to change this text.';
         break;
       case 'Banner':
-        questionData.image = null; // Will be empty until user edits it
+        questionData.image = null;
         break;
       case 'ShortAnswer':
         questionData.text = 'Short Answer Question';
+        break;
+      case 'LongAnswer': // <-- ADDED
+        questionData.text = 'Long Answer Question';
         break;
       case 'Email':
         questionData.text = 'Email';
@@ -210,7 +210,7 @@ const EditorLayout = () => {
         break;
       case 'PictureChoice':
         questionData.text = 'Which one is correct?';
-        questionData.options = [null, null]; // Start with 2 empty image slots
+        questionData.options = [null, null];
         questionData.correctAnswer = null;
         break;
     }
@@ -303,6 +303,8 @@ const EditorLayout = () => {
         return <BannerBuilder {...builderProps} />;
       case 'ShortAnswer':
         return <ShortAnswerBuilder {...builderProps} />;
+      case 'LongAnswer': // <-- ADDED
+        return <LongAnswerBuilder {...builderProps} />;
       case 'Email':
         return <EmailBuilder {...builderProps} />;
       case 'MultipleChoice':
@@ -342,7 +344,7 @@ const EditorLayout = () => {
     <div className="min-h-screen bg-sky-50 text-gray-800">
       <HorizontalNavbar 
         sidebarWidthClass="md:left-80" 
-        title={form ? form.title : (tempTitle || 'Loading...')} // <-- Use tempTitle as fallback
+        title={form ? form.title : (tempTitle || 'Loading...')}
         onTitleClick={() => {
           if (!isNewForm && form) { 
             setTempTitle(form.title);
@@ -401,7 +403,7 @@ const EditorLayout = () => {
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); }}
                   autoFocus
-                  onFocus={(e) => e.target.select()} // Auto-select text
+                  onFocus={(e) => e.target.select()}
                 />
                 <button
                   onClick={handleSaveTitle}
