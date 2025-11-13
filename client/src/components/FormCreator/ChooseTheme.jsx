@@ -21,7 +21,8 @@ const ThemeCard = ({ theme, isSelected, onClick }) => (
     </motion.div>
 );
 
-const ChooseTheme = ({ onSelectTheme, onBack }) => {
+// --- UPDATED to accept new props: onClose and submitText ---
+const ChooseTheme = ({ onSelectTheme, onBack, onClose, submitText }) => {
     // --- Use the imported themesArray ---
     const [currentTheme, setCurrentTheme] = useState(themesArray[0]);
 
@@ -53,8 +54,18 @@ const ChooseTheme = ({ onSelectTheme, onBack }) => {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden relative">
             
+            {/* --- NEW: Show close button if onClose prop is given --- */}
+            {onClose && (
+                 <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl z-10"
+                >
+                    &times;
+                </button>
+            )}
+
             <div className="flex-grow flex overflow-hidden"> 
                 
                 {/* Theme Selector Sidebar */}
@@ -109,8 +120,9 @@ const ChooseTheme = ({ onSelectTheme, onBack }) => {
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    // --- UPDATED: Only show Back button if onBack prop is given ---
                     onClick={onBack}
-                    className="px-6 py-3 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors"
+                    className={`px-6 py-3 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors ${!onBack ? 'invisible' : ''}`}
                 >
                     Back
                 </motion.button>
@@ -120,7 +132,8 @@ const ChooseTheme = ({ onSelectTheme, onBack }) => {
                     onClick={handleCreateForm}
                     className="px-8 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 transition-colors"
                 >
-                    Create form &rarr;
+                    {/* --- UPDATED: Use dynamic button text --- */}
+                    {submitText || 'Create form →'}
                 </motion.button>
             </div>
         </div>

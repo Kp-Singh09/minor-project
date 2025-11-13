@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom'; 
+// --- REMOVED THEMES IMPORT ---
 
 const fieldCategories = [
     {
@@ -15,6 +16,7 @@ const fieldCategories = [
     {
         name: "Display text",
         fields: [
+            // --- These are now active ---
             { icon: "H1", name: "Heading", type: 'Heading' },
             { icon: "¶", name: "Paragraph", type: 'Paragraph' },
             { icon: "📢", name: "Banner", type: 'Banner' },
@@ -33,44 +35,62 @@ const fieldCategories = [
     {
         name: "Question Types",
         fields: [
-            // --- ADDED TYPES ---
             { icon: "📚", name: "Comprehension", type: 'Comprehension' },
             { icon: "✍️", name: "Cloze", type: 'Cloze' },
-            //{ icon: "🗂️", name: "Categorize", type: 'Categorize' },
+            { icon: "🗂️", name: "Categorize", type: 'Categorize' },
         ]
     },
 ];
 
-// --- UPDATED FieldItem ---
 const FieldItem = ({ icon, name, type, onClick }) => (
     <motion.div
         whileHover={{ scale: 1.05, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
         whileTap={{ scale: 0.95 }}
         className="flex flex-col items-center justify-center p-3 bg-white rounded-lg shadow-sm cursor-grab active:cursor-grabbing text-gray-800 hover:bg-sky-300/50 transition-colors"
-        onClick={() => onClick(type)} // Call the passed onClick function
+        onClick={() => onClick(type)} 
     >
         <span className="text-xl mb-1">{icon}</span>
         <span className="text-xs text-center font-medium">{name}</span>
     </motion.div>
 );
 
-// --- UPDATED Sidebar ---
-// Receives setActiveBuilder as a prop
-const EditorSidebar = ({ setActiveBuilder }) => {
+// --- UPDATED: Accept onAddSimpleField prop ---
+const EditorSidebar = ({ setActiveBuilder, onAddSimpleField }) => {
     
-    // Handle clicks from FieldItem
+    // --- UPDATED: This handler is now much smarter ---
     const handleFieldClick = (type) => {
-        // Here you can differentiate between simple fields and builders
         switch(type) {
+            // Complex types open a builder
             case 'Comprehension':
             case 'Cloze':
             case 'Categorize':
-                setActiveBuilder(type); // This opens the builder
+                setActiveBuilder(type); 
+                break;
+            // Simple types are added directly
+            case 'Heading':
+            case 'Paragraph':
+            case 'Banner':
+            // --- You can add your other simple fields here too ---
+            // case 'ShortAnswer':
+            // case 'MultipleChoice':
+            // case 'Email':
+            // case 'Dropdown':
+            // case 'PictureChoice':
+            // case 'Multiselect':
+            // case 'Switch':
+            // case 'Checkbox':
+                if (onAddSimpleField) {
+                    onAddSimpleField(type);
+                } else {
+                    console.error("onAddSimpleField handler is missing");
+                }
                 break;
             default:
-                // For "Short answer", etc.
-                console.log("Adding field:", type);
-                // Later, this will add the field directly to the form
+                // Fallback for any types you haven't implemented
+                console.log("Adding field (unhandled):", type);
+                if (onAddSimpleField) {
+                    onAddSimpleField(type);
+                }
         }
     };
 
@@ -92,6 +112,8 @@ const EditorSidebar = ({ setActiveBuilder }) => {
                     />
                 </div>
 
+                {/* --- REMOVED THEME SECTION --- */}
+
                 {fieldCategories.map((category, index) => (
                     <div key={index} className="mb-6">
                         <h3 className="text-md font-semibold text-sky-800 mb-3 border-b pb-2 border-sky-300/70">{category.name}</h3>
@@ -102,7 +124,7 @@ const EditorSidebar = ({ setActiveBuilder }) => {
                                     icon={field.icon} 
                                     name={field.name} 
                                     type={field.type}
-                                    onClick={handleFieldClick} // Pass the click handler
+                                    onClick={handleFieldClick} 
                                 />
                             ))}
                         </div>

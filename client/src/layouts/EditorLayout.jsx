@@ -1,5 +1,5 @@
 // client/src/layouts/EditorLayout.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, useOutletContext, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
@@ -13,9 +13,15 @@ import EditorSidebar from '../components/FormCreator/EditorSidebar';
 import ComprehensionBuilder from '../components/builder/ComprehensionBuilder';
 import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
+import HeadingBuilder from '../components/builder/HeadingBuilder';
+import ParagraphBuilder from '../components/builder/ParagraphBuilder';
+import BannerBuilder from '../components/builder/BannerBuilder';
 
-// --- IMPORT THEMES FROM THE NEW FILE ---
+// IMPORT THEMES & THEME MODAL
 import { themes as themesObject } from '../themes'; 
+import ChooseTheme from '../components/FormCreator/ChooseTheme';
+
+const gridBackground = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
 
 const EditorLayout = () => {
   const { formId } = useParams(); 
@@ -31,6 +37,7 @@ const EditorLayout = () => {
   const isNewForm = !formId;
   
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(isNewForm);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [tempTitle, setTempTitle] = useState('Untitled Form');
 
   // --- Form Loading Logic ---
@@ -99,7 +106,7 @@ const EditorLayout = () => {
     }
   };
 
-  // --- Save Question Logic ---
+  // --- Save Question Logic (for builders) ---
   const handleSaveQuestion = async (questionData) => {
     if (isNewForm) return alert("Please name your form first."); 
     if (!user) return alert("You must be logged in.");
@@ -121,6 +128,37 @@ const EditorLayout = () => {
     }
   };
 
+  // --- NEW: Add Simple Field Handler ---
+  const handleAddSimpleField = async (fieldType) => {
+    if (isNewForm) return alert("Please name your form first.");
+    if (!user) return alert("You must be logged in.");
+
+    let questionData = { type: fieldType };
+
+    // Add default content for new fields
+    switch (fieldType) {
+      case 'Heading':
+        questionData.text = 'New Heading';
+        break;
+      case 'Paragraph':
+        questionData.text = 'This is a new paragraph. Click Edit to change this text.';
+        break;
+      case 'Banner':
+        questionData.image = null; // Will be empty until user edits it
+        break;
+    }
+
+    try {
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions`, questionData);
+      await refetchForm(formId);
+      // Scroll to the bottom of the page
+      window.scrollTo(0, document.body.scrollHeight);
+    } catch (err) {
+      alert("Error: Could not add the new field.");
+      console.error(err);
+    }
+  };
+
   // --- Delete Question Logic ---
   const handleDeleteQuestion = async (questionId) => {
     if (isNewForm) return; 
@@ -135,7 +173,21 @@ const EditorLayout = () => {
     }
   };
   
-    // --- Save and go to Dashboard ---
+  // --- Handler to update the theme ---
+  const handleThemeChange = async (newThemeName) => {
+    if (isNewForm || !form) return; 
+    try {
+      setForm(prevForm => ({ ...prevForm, theme: newThemeName }));
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { theme: newThemeName });
+      refetchForm(formId); 
+    } catch (err) {
+      console.error("Failed to update theme", err);
+      alert("Could not update theme.");
+      refetchForm(formId); 
+    }
+  };
+
+  // --- Save and go to Dashboard ---
   const handleSaveAndGoToDashboard = async () => {
     if (isNewForm) return; 
     if (isNamingModalOpen) {
@@ -167,12 +219,22 @@ const EditorLayout = () => {
     const builderType = editingQuestion ? editingQuestion.type : activeBuilder;
 
     switch (builderType) {
+      // Complex builders
       case 'Comprehension':
         return <ComprehensionBuilder {...builderProps} />;
       case 'Categorize':
         return <CategorizeBuilder {...builderProps} />;
       case 'Cloze':
         return <ClozeBuilder {...builderProps} />;
+      
+      // Simple builders
+      case 'Heading':
+        return <HeadingBuilder {...builderProps} />;
+      case 'Paragraph':
+        return <ParagraphBuilder {...builderProps} />;
+      case 'Banner':
+        return <BannerBuilder {...builderProps} />;
+
       default:
         return null;
     }
@@ -182,7 +244,7 @@ const EditorLayout = () => {
   const outletContext = {
     form,
     loading: loading || isNamingModalOpen, 
-    themes: themesObject, // <-- PASS THE IMPORTED THEMES
+    themes: themesObject, 
     activeBuilder,
     editingQuestion, 
     renderBuilder, 
@@ -190,7 +252,9 @@ const EditorLayout = () => {
     handleDeleteQuestion,
     isNewForm, 
     handleSaveAndGoToDashboard, 
-    handleSaveAndPreview, 
+    handleSaveAndPreview,
+    setIsThemeModalOpen,
+    refetchForm, // Pass refetchForm
   };
 
   return (
@@ -206,12 +270,15 @@ const EditorLayout = () => {
         }}
       />
 
-      <EditorSidebar setActiveBuilder={setActiveBuilder} /> 
+      <EditorSidebar 
+        setActiveBuilder={setActiveBuilder}
+        onAddSimpleField={handleAddSimpleField} 
+      /> 
       
       <main className="ml-0 md:ml-80 flex flex-col h-screen">
         <div className="h-20 flex-shrink-0" />
         
-        <div className="flex-grow overflow-y-auto">
+        <div className={`flex-grow overflow-y-auto ${gridBackground}`}>
           <Outlet context={outletContext} />
         </div>
         
@@ -264,6 +331,38 @@ const EditorLayout = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+      {/* --- Theme Selector Modal --- */}
+       <AnimatePresence>
+          {isThemeModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setIsThemeModalOpen(false)} // Close on overlay click
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()} 
+                className="relative"
+              >
+                <ChooseTheme 
+                  onSelectTheme={(theme) => {
+                    handleThemeChange(theme.name);
+                    setIsThemeModalOpen(false);
+                  }}
+                  onClose={() => setIsThemeModalOpen(false)}
+                  submitText="Save Theme"
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
     </div>
   );
 };

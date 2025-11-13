@@ -1,13 +1,17 @@
+// server/models/Question.js
 import mongoose from 'mongoose';
 
 const questionSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['Categorize', 'Cloze', 'Comprehension']
+    // --- UPDATED: Add new simple types ---
+    enum: ['Categorize', 'Cloze', 'Comprehension', 'Heading', 'Paragraph', 'Banner']
   },
-  title: { type: String },
-  // This will store the URL from ImageKit for a specific question
+  // --- UPDATED: Add 'text' field for Heading/Paragraph ---
+  text: { type: String, default: '' },
+  
+  // This will store the URL from ImageKit for a specific question (used by Banner)
   image: { type: String, default: null },
 
   // Fields for 'Categorize' type
