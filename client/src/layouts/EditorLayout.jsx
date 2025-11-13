@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useOutletContext, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion'; 
 
 // Import Layout Components
 import HorizontalNavbar from '../components/HorizontalNavbar'; 
@@ -14,7 +15,6 @@ import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
 
 // --- UPDATED THEMES OBJECT ---
-// Now using CSS values for 'background' property
 const themes = {
     'Default': { name: 'Default', background: 'linear-gradient(to bottom right, #60a5fa, #3b82f6)', text: 'text-white' },
     'Charcoal': { name: 'Charcoal', background: '#1f2937', text: 'text-gray-200' },
@@ -26,8 +26,8 @@ const themes = {
 };
 
 const EditorLayout = () => {
-  const { formId } = useParams(); // ID for existing forms
-  const [searchParams] = useSearchParams(); // Theme for new forms
+  const { formId } = useParams(); 
+  const [searchParams] = useSearchParams(); 
   const navigate = useNavigate();
   const { user } = useUser();
 
@@ -35,8 +35,11 @@ const EditorLayout = () => {
   const [loading, setLoading] = useState(true);
   const [activeBuilder, setActiveBuilder] = useState(null);
   const [editingQuestion, setEditingQuestion] = useState(null);
-
+  
   const isNewForm = !formId;
+  
+  const [isNamingModalOpen, setIsNamingModalOpen] = useState(isNewForm);
+  const [tempTitle, setTempTitle] = useState('Untitled Form');
 
   // --- Form Loading Logic ---
   useEffect(() => {
@@ -44,70 +47,81 @@ const EditorLayout = () => {
       try {
         const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${id}`);
         setForm(response.data);
+        setTempTitle(response.data.title);
       } catch (err) {
         console.error("Failed to fetch form", err);
-        navigate("/dashboard"); // Redirect if form not found
+        navigate("/dashboard");
       } finally {
         setLoading(false);
       }
     };
 
     if (isNewForm) {
-      const themeName = searchParams.get('theme') || 'Default';
-      setForm({
-        title: 'Untitled Form',
-        questions: [],
-        theme: themeName, // Store the theme NAME
-      });
       setLoading(false);
+      setTempTitle('Untitled Form');
+      setIsNamingModalOpen(true);
     } else {
+      setIsNamingModalOpen(false);
       fetchForm(formId);
     }
-  }, [formId, isNewForm, searchParams, navigate]);
+  }, [formId, isNewForm, navigate]);
 
-  // --- Refetch form data (used after saving/deleting) ---
+  // --- Refetch form data ---
   const refetchForm = useCallback(async (idToFetch) => {
     if (idToFetch) {
       try {
         const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${idToFetch}`);
         setForm(response.data);
+        setTempTitle(response.data.title);
       } catch (err) {
         console.error("Failed to refetch form", err);
       }
     }
   }, []);
 
-  // --- Save Question Logic (from old FormEditor.jsx) ---
-  const handleSaveQuestion = async (questionData) => {
+  // --- Save/Update Form Title (from modal) ---
+  const handleSaveTitle = async () => {
     if (!user) return alert("You must be logged in.");
-
-    let currentFormId = formId;
+    const newTitle = tempTitle.trim() || 'Untitled Form';
 
     try {
-      // 1. If it's a new form, create the form first
-      if (isNewForm) {
-        const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, {
-          title: form.title,
-          userId: user.id,
-          username: user.fullName || user.username,
-          // You can save the theme here too if your Form model supports it
-        });
-        currentFormId = formResponse.data._id;
-        // Navigate to the new editor URL so it's no longer a "new" form
-        navigate(`/editor/${currentFormId}`, { replace: true });
-      }
+        if (isNewForm) {
+            const themeName = searchParams.get('theme') || 'Default';
+            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, {
+                title: newTitle,
+                userId: user.id,
+                username: user.fullName || user.username,
+                theme: themeName,
+            });
+            setForm(formResponse.data);
+            setIsNamingModalOpen(false);
+            navigate(`/editor/${formResponse.data._id}`, { replace: true });
+        } else {
+            const updateResponse = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: newTitle });
+            setForm(updateResponse.data);
+            setIsNamingModalOpen(false);
+        }
+    } catch (err) {
+        console.error("Failed to save form title", err);
+        alert("Could not save title. Please try again.");
+    }
+  };
 
-      // 2. Save the question (either new or update)
+  // --- Save Question Logic ---
+  const handleSaveQuestion = async (questionData) => {
+    if (isNewForm) return alert("Please name your form first."); 
+    if (!user) return alert("You must be logged in.");
+
+    try {
       if (editingQuestion) {
         await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/questions/${editingQuestion._id}`, questionData);
       } else {
-        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${currentFormId}/questions`, questionData);
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions`, questionData);
       }
 
-      // 3. Reset UI and refetch form
       setActiveBuilder(null);
       setEditingQuestion(null);
-      await refetchForm(currentFormId);
+      await refetchForm(formId);
 
     } catch (err) {
       alert("Error: Could not save the question.");
@@ -117,7 +131,7 @@ const EditorLayout = () => {
 
   // --- Delete Question Logic ---
   const handleDeleteQuestion = async (questionId) => {
-    if (!formId) return; // Can't delete from an unsaved form
+    if (isNewForm) return; 
     if (window.confirm('Are you sure you want to delete this question?')) {
       try {
         await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions/${questionId}`);
@@ -127,6 +141,24 @@ const EditorLayout = () => {
         console.error(err);
       }
     }
+  };
+
+  // --- Save and go to Dashboard ---
+  const handleSaveAndGoToDashboard = async () => {
+    if (isNewForm) return; 
+    if (isNamingModalOpen) {
+      await handleSaveTitle();
+    }
+    navigate('/dashboard');
+  };
+
+  // --- Save and Preview ---
+  const handleSaveAndPreview = async () => {
+    if (isNewForm) return; 
+    if (isNamingModalOpen) {
+      await handleSaveTitle();
+    }
+    window.open(`/form/${formId}`, '_blank');
   };
 
   // --- Function to render the correct builder ---
@@ -157,29 +189,93 @@ const EditorLayout = () => {
   // --- Context to pass to FormEditorUI ---
   const outletContext = {
     form,
-    loading,
-    themes, // Pass the CSS themes object
+    loading: loading || isNamingModalOpen, 
+    themes, 
     activeBuilder,
-    editingQuestion,
-    renderBuilder, // Pass the render function
-    setEditingQuestion, // Pass setters
-    handleDeleteQuestion, // Pass actions
+    editingQuestion, 
+    renderBuilder, 
+    setEditingQuestion, 
+    handleDeleteQuestion,
+    isNewForm, // 👈 PASS isNewForm
+    handleSaveAndGoToDashboard, // 👈 PASS handler
+    handleSaveAndPreview, // 👈 PASS handler
   };
 
   return (
     <div className="min-h-screen bg-sky-50 text-gray-800">
-      <HorizontalNavbar sidebarWidthClass="md:left-80" />
+      <HorizontalNavbar 
+        sidebarWidthClass="md:left-80" 
+        title={form ? form.title : (isNewForm ? '...' : 'Loading...')}
+        onTitleClick={() => {
+          if (!isNewForm && form) { 
+            setTempTitle(form.title);
+            setIsNamingModalOpen(true);
+          }
+        }}
+      />
 
-      {/* Pass the state setter down to the sidebar */}
       <EditorSidebar setActiveBuilder={setActiveBuilder} /> 
       
+      {/* This 'main' element is back to being simple */}
       <main className="ml-0 md:ml-80 flex flex-col h-screen">
         <div className="h-20 flex-shrink-0" />
+        
+        {/* This 'div' is the main scrolling area */}
         <div className="flex-grow overflow-y-auto">
-          {/* Pass all logic to the Outlet (which renders FormEditorUI) */}
+          {/* Outlet renders FormEditorUI, which now contains the buttons */}
           <Outlet context={outletContext} />
         </div>
+        
+        {/* --- 👈 BUTTON CONTAINER REMOVED FROM HERE --- */}
       </main>
+
+      {/* --- "Name your form" Modal --- */}
+      <AnimatePresence>
+          {isNamingModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => !isNewForm && setIsNamingModalOpen(false)} 
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()} 
+                className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md relative"
+              >
+                {!isNewForm && (
+                  <button
+                    onClick={() => setIsNamingModalOpen(false)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    &times;
+                  </button>
+                )}
+                <h3 className="text-2xl font-bold mb-6 text-gray-900">
+                  {isNewForm ? 'Name your form' : 'Edit form name'}
+                </h3>
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); }}
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveTitle}
+                  className="w-full bg-blue-600 text-white font-semibold py-3 rounded-md mt-6 hover:bg-blue-700 transition-colors"
+                >
+                  {isNewForm ? 'Continue' : 'Save'}
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   );
 };

@@ -41,7 +41,10 @@ const FormEditorUI = () => {
         editingQuestion, 
         renderBuilder, 
         setEditingQuestion,
-        handleDeleteQuestion
+        handleDeleteQuestion,
+        isNewForm, // 👈 NEW
+        handleSaveAndGoToDashboard, // 👈 NEW
+        handleSaveAndPreview // 👈 NEW
     } = useOutletContext();
 
     if (loading) {
@@ -60,25 +63,17 @@ const FormEditorUI = () => {
 
     return (
         // The parent div now applies the grid background
+        // 👈 REMOVED pb-24, padding is now on the canvas itself
         <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
-            className={`p-8 min-h-full ${gridBackground}`} // Apply grid to the parent
+            className={`p-8 min-h-full ${gridBackground}`} 
         >
             {/* --- Main Canvas --- */}
+            {/* 👈 ADDED pb-8 to canvas for internal spacing */}
             <div 
-                // --- CORRECTED STYLING ---
-                // Set the background to 'bg-white' explicitly.
-                // The theme's background (blue, etc.) will be applied to
-                // elements *inside* the form later, not the canvas itself.
-                className="w-full max-w-2xl min-h-[600px] rounded-lg shadow-xl border border-gray-300 flex flex-col items-center gap-6 p-8 mx-auto bg-white"
-                // No style tag is needed
+                className="w-full max-w-2xl min-h-[600px] rounded-lg shadow-xl border border-gray-300 flex flex-col items-center gap-6 p-8 mx-auto bg-white pb-8"
             >
-                {/* Form Title */}
-                <h3 className={`text-3xl font-bold ${selectedTheme.text} text-center`}>
-                    {form.title}
-                </h3>
-
                 {/* --- Render Existing Questions --- */}
                 {form.questions && form.questions.length > 0 ? (
                     form.questions.map((q, index) => (
@@ -91,7 +86,6 @@ const FormEditorUI = () => {
                         />
                     ))
                 ) : (
-                    // Use the theme's text color, but force it to be slightly transparent
                     <p className={`text-center ${selectedTheme.text} opacity-60`}>
                         Drag and drop questions from the left-hand side.
                     </p>
@@ -103,7 +97,29 @@ const FormEditorUI = () => {
                         {renderBuilder()}
                     </div>
                 )}
+            </div>
 
+            {/* --- 👈 NEW: Buttons container --- */}
+            {/* This is now INSIDE the scrolling grid div, but AFTER the white canvas div */}
+            <div className="w-full max-w-2xl mx-auto flex justify-end gap-4 mt-8">
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSaveAndPreview}
+                    disabled={isNewForm}
+                    className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Preview
+                </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSaveAndGoToDashboard}
+                    disabled={isNewForm}
+                    className="px-6 py-3 rounded-lg bg-green-600 text-white font-semibold shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Save Form
+                </motion.button>
             </div>
         </motion.div>
     );

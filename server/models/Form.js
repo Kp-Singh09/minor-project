@@ -6,6 +6,7 @@ const formSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   username: { type: String, default: 'Anonymous' },
   title: { type: String, default: 'Untitled Form' },
+  theme: { type: String, default: 'Default' }, // 👈 ADD THIS LINE
   headerImage: { type: String, default: null }, 
   questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
   responses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Response' }],

@@ -36,7 +36,7 @@ const fieldCategories = [
             // --- ADDED TYPES ---
             { icon: "📚", name: "Comprehension", type: 'Comprehension' },
             { icon: "✍️", name: "Cloze", type: 'Cloze' },
-            { icon: "🗂️", name: "Categorize", type: 'Categorize' },
+            //{ icon: "🗂️", name: "Categorize", type: 'Categorize' },
         ]
     },
 ];

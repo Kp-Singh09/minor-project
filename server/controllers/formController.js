@@ -3,10 +3,7 @@ import Form from '../models/Form.js';
 import Question from '../models/Question.js';
 import Response from '../models/Response.js'; // Import the Response model
 
-// --- NEW ---
-// @desc    Update a question
-// @route   PUT /api/forms/questions/:questionId
-// @access  Private
+// ... (updateQuestion, deleteQuestionFromForm, deleteForm, getFormsByUser remain the same)
 export const updateQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
@@ -24,10 +21,6 @@ export const updateQuestion = async (req, res) => {
     }
 };
 
-// --- NEW ---
-// @desc    Delete a question from a form
-// @route   DELETE /api/forms/:formId/questions/:questionId
-// @access  Private
 export const deleteQuestionFromForm = async (req, res) => {
     try {
         const { formId, questionId } = req.params;
@@ -44,10 +37,6 @@ export const deleteQuestionFromForm = async (req, res) => {
     }
 };
 
-
-// @desc    Delete a form and all its associated data
-// @route   DELETE /api/forms/:id
-// @access  Private
 export const deleteForm = async (req, res) => {
     try {
         const { id } = req.params;
@@ -74,9 +63,6 @@ export const deleteForm = async (req, res) => {
     }
 };
 
-// @desc    Get all forms for a specific user
-// @route   GET /api/forms/user/:userId
-// @access  Private
 export const getFormsByUser = async (req, res) => {
   try {
     const forms = await Form.find({ userId: req.params.userId }).sort({ createdAt: -1 });
@@ -86,19 +72,20 @@ export const getFormsByUser = async (req, res) => {
   }
 };
 
-// @desc    Update form title or header image
+// @desc    Update form title, header image, or theme
 // @route   PUT /api/forms/:id
 // @access  Private
 export const updateForm = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, headerImage } = req.body;
+        const { title, headerImage, theme } = req.body; // 👈 ADDED theme
         const form = await Form.findById(id);
         if (!form) {
             return res.status(404).json({ message: 'Form not found' });
         }
         if (title) form.title = title;
         if (headerImage) form.headerImage = headerImage;
+        if (theme) form.theme = theme; // 👈 ADDED THIS LINE
         const updatedForm = await form.save();
         res.status(200).json(updatedForm);
     } catch (error) {
@@ -111,14 +98,15 @@ export const updateForm = async (req, res) => {
 // @access  Private
 export const createForm = async (req, res) => {
   try {
-    const { title, userId, username } = req.body; 
+    const { title, userId, username, theme } = req.body; // 👈 ADDED theme
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required to create a form.' });
     }
     const form = new Form({
       title: title || 'My New Form',
       userId: userId,
-      username: username || 'Anonymous'
+      username: username || 'Anonymous',
+      theme: theme || 'Default' // 👈 ADDED THIS LINE
     });
     const newForm = await form.save();
     res.status(201).json(newForm);
@@ -127,9 +115,7 @@ export const createForm = async (req, res) => {
   }
 };
 
-// @desc    Add a question to a form
-// @route   POST /api/forms/:id/questions
-// @access  Private
+// ... (addQuestionToForm and getFormById remain the same)
 export const addQuestionToForm = async (req, res) => {
     try {
       const form = await Form.findById(req.params.id);
@@ -148,9 +134,6 @@ export const addQuestionToForm = async (req, res) => {
     }
 };
 
-// @desc    Get a single form by its ID
-// @route   GET /api/forms/:id
-// @access  Public
 export const getFormById = async (req, res) => {
     try {
       const form = await Form.findById(req.params.id).populate('questions');
