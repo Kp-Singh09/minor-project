@@ -353,9 +353,9 @@ const FormEditorUI = () => {
                             <React.Fragment key={q._id}>
                                 {QuestionComponent}
                                 {editingQuestion && editingQuestion._id === q._id && (
-                                    <div className="w-full mt-4 animate-fadeIn">
-                                        {/* --- FIX: Removed bg-blue-50/50 so it's transparent on dark themes --- */}
-                                        <div className="border-2 border-blue-400 rounded-lg p-1">
+                                    // --- FIX: Reduced margin from mt-4 to mt-1 ---
+                                    <div className="w-full mt-1 animate-fadeIn">
+                                        <div className="w-full">
                                             {renderBuilder()}
                                         </div>
                                     </div>
@@ -371,7 +371,8 @@ const FormEditorUI = () => {
 
                 {/* --- Bottom Builder: Only for NEW questions --- */}
                 {(activeBuilder && !editingQuestion) && (
-                    <div className="w-full">
+                    // --- FIX: Added mt-6 so new questions are separated from the list ---
+                    <div className="w-full mt-6">
                         {renderBuilder()}
                     </div>
                 )}

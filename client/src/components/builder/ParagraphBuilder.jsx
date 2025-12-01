@@ -1,8 +1,17 @@
 // client/src/components/builder/ParagraphBuilder.jsx
 import { useState, useEffect } from 'react';
 
-const ParagraphBuilder = ({ onSave, onCancel, initialData = null }) => {
+const ParagraphBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   const [text, setText] = useState('');
+
+  const currentTheme = theme || { 
+    name: 'Light',
+    cardBg: 'bg-white', 
+    text: 'text-gray-900', 
+    secondaryText: 'text-gray-500', 
+    input: 'bg-white border-gray-300 text-gray-900' 
+  };
+  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
@@ -17,20 +26,30 @@ const ParagraphBuilder = ({ onSave, onCancel, initialData = null }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md mt-6 animate-fadeIn">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Paragraph</h3>
+    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Paragraph</h3>
       
-      <label className="block text-gray-700 font-semibold mb-2">Paragraph Text</label>
+      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Paragraph Text</label>
       <textarea
-        className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md text-gray-900 min-h-[150px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        className={`w-full p-3 rounded-md min-h-[150px] focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
         placeholder="Enter your paragraph text..."
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
 
-      <div className="flex justify-end gap-4 mt-8 border-t border-gray-200 pt-4">
-        <button onClick={onCancel} className="bg-gray-200 text-gray-800 py-2 px-5 rounded-md hover:bg-gray-300">Cancel</button>
-        <button onClick={handleSave} className="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700">Save</button>
+      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+        <button 
+          onClick={onCancel} 
+          className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSave} 
+          className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors"
+        >
+          Save Question
+        </button>
       </div>
     </div>
   );

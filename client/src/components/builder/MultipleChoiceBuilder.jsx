@@ -6,7 +6,6 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
   const [options, setOptions] = useState(['Option 1', 'Option 2']);
   const [correctAnswerIndex, setCorrectAnswerIndex] = useState(0);
 
-  // Default theme fallback
   const currentTheme = theme || { 
     name: 'Light',
     cardBg: 'bg-white', 
@@ -15,7 +14,6 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
     input: 'bg-white border-gray-300 text-gray-900' 
   };
 
-  // Helper to detect dark themes for border/button adjustments
   const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
@@ -58,10 +56,8 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
   };
 
   return (
-    // 1. Apply Theme Card Background
-    <div className={`p-6 rounded-lg shadow-md mt-6 animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
       
-      {/* Header */}
       <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>
         Edit Multiple Choice
       </h3>
@@ -69,7 +65,6 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
       <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Question Text</label>
       <input
         type="text"
-        // 2. Apply Theme Input Styles
         className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none mb-6 ${currentTheme.input}`}
         placeholder="Enter your question"
         value={questionText}
@@ -91,7 +86,6 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
               className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
             />
             
-            {/* 3. Apply Theme Input Styles to Options */}
             <input
               type="text"
               className={`flex-grow p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
@@ -117,7 +111,6 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
         + Add Option
       </button>
 
-      {/* Footer Buttons */}
       <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
         <button 
           onClick={onCancel} 
@@ -127,9 +120,9 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
         </button>
         <button 
           onClick={handleSave} 
-          className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 transition-colors"
+          className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors"
         >
-          Save
+          Save Question
         </button>
       </div>
     </div>

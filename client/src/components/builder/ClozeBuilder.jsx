@@ -97,7 +97,7 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   };
 
   return (
-    <div className={`p-6 mt-6 animate-fadeIn rounded-lg ${currentTheme.cardBg}`}>
+    <div className={`p-6 animate-fadeIn rounded-lg ${currentTheme.cardBg}`}>
       <div className={`flex justify-between items-center mb-4 border-b pb-4 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
         <h3 className={`text-xl font-bold ${currentTheme.text}`}>{initialData ? 'Edit' : 'Create'} Cloze (Fill-in-the-Blanks) Question</h3>
         {!imagePreview && (
@@ -169,7 +169,8 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         >
           Cancel
         </button>
-        <button onClick={handleSave} className="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700">Save Question</button>
+        {/* --- STANDARDIZED BUTTON --- */}
+        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
       </div>
     </div>
   );

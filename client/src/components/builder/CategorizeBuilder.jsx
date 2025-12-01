@@ -102,7 +102,7 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   };
 
   return (
-    <div className={`p-6 mt-6 animate-fadeIn rounded-lg ${currentTheme.cardBg}`}>
+    <div className={`p-6 animate-fadeIn rounded-lg ${currentTheme.cardBg}`}>
       {/* Header */}
       <div className={`flex justify-between items-center mb-6 pb-4 border-b ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
         <h3 className={`text-xl font-bold ${currentTheme.text}`}>
@@ -241,7 +241,8 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         >
           Cancel
         </button>
-        <button onClick={handleSave} className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 shadow-md transition-colors">Save Question</button>
+        {/* --- STANDARDIZED BUTTON --- */}
+        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
       </div>
     </div>
   );

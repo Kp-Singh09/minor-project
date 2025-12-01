@@ -2,10 +2,19 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const BannerBuilder = ({ onSave, onCancel, initialData = null }) => {
+const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
+
+  const currentTheme = theme || { 
+    name: 'Light',
+    cardBg: 'bg-white', 
+    text: 'text-gray-900', 
+    secondaryText: 'text-gray-500', 
+    input: 'bg-white border-gray-300 text-gray-900' 
+  };
+  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
@@ -52,15 +61,15 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md mt-6 animate-fadeIn">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Banner Image</h3>
+    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Banner Image</h3>
       
       {!imagePreview && (
         <>
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} accept="image/*" />
             <button 
                 onClick={() => fileInputRef.current.click()} 
-                className="w-full py-4 border-2 border-dashed border-gray-300 rounded-md text-gray-500 hover:bg-gray-50 hover:border-blue-500"
+                className={`w-full py-4 border-2 border-dashed rounded-md transition-colors ${isDark ? 'border-gray-500 text-gray-300 hover:bg-white/5 hover:border-blue-400' : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-blue-500'}`}
             >
                 Click to Upload Banner Image
             </button>
@@ -68,7 +77,7 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null }) => {
       )}
 
       {imagePreview && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex flex-col items-center gap-4">
+        <div className={`mb-4 p-3 rounded-lg flex flex-col items-center gap-4 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-green-50 border-green-200'}`}>
           <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-cover rounded-md"/>
           <button onClick={() => { setImagePreview(''); setImageFile(null); fileInputRef.current.value = null; }} className="text-red-600 hover:text-red-800 text-sm font-semibold">
             Remove Image
@@ -76,9 +85,19 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null }) => {
         </div>
       )}
 
-      <div className="flex justify-end gap-4 mt-8 border-t border-gray-200 pt-4">
-        <button onClick={onCancel} className="bg-gray-200 text-gray-800 py-2 px-5 rounded-md hover:bg-gray-300">Cancel</button>
-        <button onClick={handleSave} className="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700">Save</button>
+      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+        <button 
+          onClick={onCancel} 
+          className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSave} 
+          className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors"
+        >
+          Save Question
+        </button>
       </div>
     </div>
   );
