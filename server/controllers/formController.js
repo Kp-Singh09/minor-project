@@ -71,13 +71,13 @@ export const getFormsByUser = async (req, res) => {
   }
 };
 
-// @desc    Update form title, header image, or theme
+// @desc    Update form title, header image, theme, OR questions order
 // @route   PUT /api/forms/:id
 // @access  Private
 export const updateForm = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, headerImage, theme } = req.body;
+        const { title, headerImage, theme, questions } = req.body; // Added 'questions'
         const form = await Form.findById(id);
         if (!form) {
             return res.status(404).json({ message: 'Form not found' });
@@ -85,10 +85,14 @@ export const updateForm = async (req, res) => {
         
         if (title) form.title = title;
         
-        // --- FIX: Check for undefined so we can accept null/empty string to clear it ---
         if (headerImage !== undefined) form.headerImage = headerImage; 
         
         if (theme) form.theme = theme;
+
+        // --- NEW: Update questions order ---
+        if (questions) {
+            form.questions = questions;
+        }
         
         await form.save();
         
@@ -96,6 +100,7 @@ export const updateForm = async (req, res) => {
         const updatedForm = await Form.findById(id).populate('questions');
         res.status(200).json(updatedForm);
     } catch (error) {
+        console.error("Error updating form:", error);
         res.status(500).json({ message: 'Server Error: Could not update form', error });
     }
 };
@@ -105,37 +110,30 @@ export const updateForm = async (req, res) => {
 // @access  Private
 export const createForm = async (req, res) => {
   try {
-    // 1. Destructure all possible fields
     const { title, userId, username, theme, questions: templateQuestions } = req.body; 
 
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required to create a form.' });
     }
 
-    // 2. Create the Form document
     const newForm = new Form({
       title: title || 'My New Form',
       userId: userId,
       username: username || 'Anonymous',
-      theme: theme || 'Light', // Use 'Light' as the default
-      questions: [], // Start with an empty array
+      theme: theme || 'Light',
+      questions: [], 
     });
 
-    // 3. Check if template questions were provided
     if (templateQuestions && Array.isArray(templateQuestions) && templateQuestions.length > 0) {
       const questionIds = [];
       for (const qData of templateQuestions) {
-        // Create a new Question document for each question in the template
         const newQuestion = new Question({
           type: qData.type,
           text: qData.text,
-          // Display types
           image: qData.image,
-          // Choice types
           options: qData.options,
           correctAnswer: qData.correctAnswer,
           correctAnswers: qData.correctAnswers,
-          // Complex types
           categories: qData.categories,
           items: qData.items,
           passage: qData.passage,
@@ -145,14 +143,11 @@ export const createForm = async (req, res) => {
         await newQuestion.save();
         questionIds.push(newQuestion._id);
       }
-      // 4. Add the new question IDs to the form
       newForm.questions = questionIds;
     }
 
-    // 5. Save the new form
     const savedForm = await newForm.save();
     
-    // 6. Populate and return the new form
     const populatedForm = await Form.findById(savedForm._id).populate('questions');
     res.status(201).json(populatedForm);
     
