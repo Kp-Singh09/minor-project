@@ -1,7 +1,7 @@
 // server/controllers/formController.js
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
-import Response from '../models/Response.js'; // Import the Response model
+import Response from '../models/Response.js';
 
 export const updateQuestion = async (req, res) => {
     try {
@@ -82,17 +82,19 @@ export const updateForm = async (req, res) => {
         if (!form) {
             return res.status(404).json({ message: 'Form not found' });
         }
+        
         if (title) form.title = title;
-        if (headerImage) form.headerImage = headerImage;
+        
+        // --- FIX: Check for undefined so we can accept null/empty string to clear it ---
+        if (headerImage !== undefined) form.headerImage = headerImage; 
+        
         if (theme) form.theme = theme;
         
         await form.save();
         
-        // --- THIS IS THE FIX ---
         // Repopulate the form with question details before sending back
         const updatedForm = await Form.findById(id).populate('questions');
         res.status(200).json(updatedForm);
-        // --- END OF FIX ---
     } catch (error) {
         res.status(500).json({ message: 'Server Error: Could not update form', error });
     }
@@ -147,14 +149,12 @@ export const createForm = async (req, res) => {
       newForm.questions = questionIds;
     }
 
-    // --- THIS IS THE FIX ---
     // 5. Save the new form
     const savedForm = await newForm.save();
     
     // 6. Populate and return the new form
     const populatedForm = await Form.findById(savedForm._id).populate('questions');
     res.status(201).json(populatedForm);
-    // --- END OF FIX ---
     
   } catch (error) {
     console.error("Error creating form:", error);

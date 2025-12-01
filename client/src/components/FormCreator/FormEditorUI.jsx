@@ -22,7 +22,7 @@ const SimpleTextCard = ({ question, onEdit, onDelete, theme }) => {
         </div>
       );
       break;
-    case 'LongAnswer': // <-- ADDED
+    case 'LongAnswer':
       content = (
         <div>
           <p className={`font-semibold text-lg mb-2 ${theme.text}`}>{question.text}</p>
@@ -210,6 +210,19 @@ const FormEditorUI = () => {
         }
     };
 
+    const handleRemoveHeaderImage = async () => {
+        if (!form) return;
+        if (window.confirm("Are you sure you want to remove the header image?")) {
+            try {
+                await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${form._id}`, { headerImage: null });
+                if (refetchForm) refetchForm(form._id);
+            } catch (err) {
+                console.error("Failed to remove header image", err);
+                alert("Could not remove header image.");
+            }
+        }
+    };
+
 
     if (loading) {
         return <div className="p-8 text-center text-gray-600">Loading Editor...</div>;
@@ -247,16 +260,30 @@ const FormEditorUI = () => {
                     Theme
                 </motion.button>
                 
-                 <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => fileInputRef.current.click()}
-                    disabled={isNewForm}
-                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-white text-gray-700 font-semibold shadow-md hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
-                >
-                    <span className="text-xl">🖼️</span>
-                    {form.headerImage ? 'Change Header' : 'Add Header'}
-                </motion.button>
+                <div className="flex gap-2">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fileInputRef.current.click()}
+                        disabled={isNewForm}
+                        className="flex items-center gap-2 px-5 py-2 rounded-lg bg-white text-gray-700 font-semibold shadow-md hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+                    >
+                        <span className="text-xl">🖼️</span>
+                        {form.headerImage ? 'Change Header' : 'Add Header'}
+                    </motion.button>
+
+                    {form.headerImage && !isNewForm && (
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleRemoveHeaderImage}
+                            className="flex items-center justify-center w-12 rounded-lg bg-red-50 text-red-600 font-semibold shadow-md hover:bg-red-100 transition-colors border border-red-200"
+                            title="Remove Header Image"
+                        >
+                            <span className="text-lg">🗑️</span>
+                        </motion.button>
+                    )}
+                </div>
             </div>
 
             {/* --- Main Canvas --- */}
@@ -264,16 +291,15 @@ const FormEditorUI = () => {
                 className={`w-full max-w-2xl min-h-[600px] rounded-lg shadow-xl border border-gray-300 flex flex-col items-center gap-6 p-8 mx-auto ${selectedTheme.cardBg} ${selectedTheme.text}`}
             >
                 {form.headerImage && (
-                    <div className="w-full rounded-md overflow-hidden">
+                    <div className="w-full rounded-md overflow-hidden relative group">
                         <img src={form.headerImage} alt="Form Header" className="w-full h-auto object-cover" />
                     </div>
                 )}
 
-                {/* --- UPDATED: Render loop with switch statement --- */}
+                {/* --- RENDER LOOP --- */}
                 {form.questions && form.questions.length > 0 ? (
                     form.questions.map((q, index) => {
                         if (!q) {
-                           // Add a check for null/undefined questions
                            console.error("Encountered null question at index:", index);
                            return (
                                <div key={`error-${index}`} className="p-4 bg-red-100 text-red-700 rounded-md w-full">
@@ -281,38 +307,61 @@ const FormEditorUI = () => {
                                </div>
                            );
                         }
+
+                        let QuestionComponent = null;
+
                         switch (q.type) {
                             case 'Heading':
                             case 'Paragraph':
                             case 'ShortAnswer':
                             case 'Email':
                             case 'Switch':
-                            case 'LongAnswer': // <-- ADDED
-                                return <SimpleTextCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                            case 'LongAnswer':
+                                QuestionComponent = <SimpleTextCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                break;
                             
                             case 'MultipleChoice':
                             case 'Checkbox':
                             case 'Dropdown':
-                                return <OptionsCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                QuestionComponent = <OptionsCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                break;
 
                             case 'PictureChoice':
-                                return <PictureChoiceCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                QuestionComponent = <PictureChoiceCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                break;
 
                             case 'Banner':
-                                return <BannerCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                QuestionComponent = <BannerCard key={q._id} question={q} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                break;
                             
                             case 'Comprehension':
                             case 'Cloze':
                             case 'Categorize':
-                                return <QuestionCard key={q._id} question={q} index={index} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                QuestionComponent = <QuestionCard key={q._id} question={q} index={index} onEdit={setEditingQuestion} onDelete={handleDeleteQuestion} theme={selectedTheme} />;
+                                break;
                                 
                             default:
-                                return (
+                                QuestionComponent = (
                                     <div key={q._id || `unknown-${index}`} className="p-4 bg-red-100 text-red-700 rounded-md w-full">
                                         Unsupported field type: {q.type || "Unknown"}
                                     </div>
                                 );
                         }
+
+                        // --- Render Component + Inline Builder if editing ---
+                        return (
+                            <React.Fragment key={q._id}>
+                                {QuestionComponent}
+                                {editingQuestion && editingQuestion._id === q._id && (
+                                    <div className="w-full mt-4 animate-fadeIn">
+                                        {/* --- FIX: Removed bg-blue-50/50 so it's transparent on dark themes --- */}
+                                        <div className="border-2 border-blue-400 rounded-lg p-1">
+                                            {renderBuilder()}
+                                        </div>
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
                     })
                 ) : (
                     <p className={`text-center ${selectedTheme.secondaryText} opacity-60`}>
@@ -320,7 +369,8 @@ const FormEditorUI = () => {
                     </p>
                 )}
 
-                {(activeBuilder || editingQuestion) && (
+                {/* --- Bottom Builder: Only for NEW questions --- */}
+                {(activeBuilder && !editingQuestion) && (
                     <div className="w-full">
                         {renderBuilder()}
                     </div>

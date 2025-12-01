@@ -17,7 +17,7 @@ import HeadingBuilder from '../components/builder/HeadingBuilder';
 import ParagraphBuilder from '../components/builder/ParagraphBuilder';
 import BannerBuilder from '../components/builder/BannerBuilder';
 import ShortAnswerBuilder from '../components/builder/ShortAnswerBuilder';
-import LongAnswerBuilder from '../components/builder/LongAnswerBuilder'; // <-- ADDED
+import LongAnswerBuilder from '../components/builder/LongAnswerBuilder';
 import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder';
 import EmailBuilder from '../components/builder/EmailBuilder';
 import CheckboxBuilder from '../components/builder/CheckboxBuilder';
@@ -123,17 +123,13 @@ const EditorLayout = () => {
     
             const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, payload);
             
-            // This works because the server now sends back the populated form
             setForm(formResponse.data);
             setIsNamingModalOpen(false);
             navigate(`/editor/${formResponse.data._id}`, { replace: true });
         } else {
-            // --- THIS IS THE FIX ---
-            // When renaming, update and then refetch to get populated data
             await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: newTitle });
-            await refetchForm(formId); // Refetch to get populated data
+            await refetchForm(formId); 
             setIsNamingModalOpen(false);
-            // --- END OF FIX ---
         }
     } catch (err) {
         console.error("Failed to save form title", err);
@@ -141,7 +137,6 @@ const EditorLayout = () => {
     }
   };
 
-  // --- Save Question Logic (for builders) ---
   const handleSaveQuestion = async (questionData) => {
     if (isNewForm) return alert("Please name your form first."); 
     if (!user) return alert("You must be logged in.");
@@ -163,33 +158,19 @@ const EditorLayout = () => {
     }
   };
 
-  // --- Add Simple Field Handler ---
   const handleAddSimpleField = async (fieldType) => {
     if (isNewForm) return alert("Please name your form first.");
     if (!user) return alert("You must be logged in.");
 
     let questionData = { type: fieldType };
 
-    // Add default content for new fields
     switch (fieldType) {
-      case 'Heading':
-        questionData.text = 'New Heading';
-        break;
-      case 'Paragraph':
-        questionData.text = 'This is a new paragraph. Click Edit to change this text.';
-        break;
-      case 'Banner':
-        questionData.image = null;
-        break;
-      case 'ShortAnswer':
-        questionData.text = 'Short Answer Question';
-        break;
-      case 'LongAnswer': // <-- ADDED
-        questionData.text = 'Long Answer Question';
-        break;
-      case 'Email':
-        questionData.text = 'Email';
-        break;
+      case 'Heading': questionData.text = 'New Heading'; break;
+      case 'Paragraph': questionData.text = 'This is a new paragraph. Click Edit to change this text.'; break;
+      case 'Banner': questionData.image = null; break;
+      case 'ShortAnswer': questionData.text = 'Short Answer Question'; break;
+      case 'LongAnswer': questionData.text = 'Long Answer Question'; break;
+      case 'Email': questionData.text = 'Email'; break;
       case 'MultipleChoice':
         questionData.text = 'Multiple Choice Question';
         questionData.options = ['Option 1', 'Option 2'];
@@ -205,9 +186,7 @@ const EditorLayout = () => {
         questionData.options = ['Option 1', 'Option 2'];
         questionData.correctAnswer = 'Option 1';
         break;
-      case 'Switch':
-        questionData.text = 'Do you agree?';
-        break;
+      case 'Switch': questionData.text = 'Do you agree?'; break;
       case 'PictureChoice':
         questionData.text = 'Which one is correct?';
         questionData.options = [null, null];
@@ -225,8 +204,6 @@ const EditorLayout = () => {
     }
   };
 
-
-  // --- Delete Question Logic ---
   const handleDeleteQuestion = async (questionId) => {
     if (isNewForm) return; 
     if (window.confirm('Are you sure you want to delete this question?')) {
@@ -240,7 +217,6 @@ const EditorLayout = () => {
     }
   };
   
-  // --- Handler to update the theme ---
   const handleThemeChange = async (newThemeName) => {
     if (isNewForm || !form) return; 
     try {
@@ -254,7 +230,6 @@ const EditorLayout = () => {
     }
   };
 
-  // --- Save and go to Dashboard ---
   const handleSaveAndGoToDashboard = async () => {
     if (isNewForm) return; 
     if (isNamingModalOpen) {
@@ -263,7 +238,6 @@ const EditorLayout = () => {
     navigate('/dashboard');
   };
 
-  // --- Save and Preview ---
   const handleSaveAndPreview = async () => {
     if (isNewForm) return; 
     if (isNamingModalOpen) {
@@ -271,6 +245,9 @@ const EditorLayout = () => {
     }
     window.open(`/form/${formId}`, '_blank');
   };
+
+  // --- Determine Current Theme ---
+  const currentTheme = form ? (themesObject[form.theme] || themesObject['Light']) : themesObject['Light'];
 
   // --- Function to render the correct builder ---
   const renderBuilder = () => {
@@ -281,49 +258,30 @@ const EditorLayout = () => {
         setEditingQuestion(null);
       },
       initialData: editingQuestion,
+      theme: currentTheme, // <--- 1. PASS THEME HERE
     };
 
     const builderType = editingQuestion ? editingQuestion.type : activeBuilder;
 
     switch (builderType) {
-      // Complex builders
-      case 'Comprehension':
-        return <ComprehensionBuilder {...builderProps} />;
-      case 'Categorize':
-        return <CategorizeBuilder {...builderProps} />;
-      case 'Cloze':
-        return <ClozeBuilder {...builderProps} />;
-      
-      // Simple builders
-      case 'Heading':
-        return <HeadingBuilder {...builderProps} />;
-      case 'Paragraph':
-        return <ParagraphBuilder {...builderProps} />;
-      case 'Banner':
-        return <BannerBuilder {...builderProps} />;
-      case 'ShortAnswer':
-        return <ShortAnswerBuilder {...builderProps} />;
-      case 'LongAnswer': // <-- ADDED
-        return <LongAnswerBuilder {...builderProps} />;
-      case 'Email':
-        return <EmailBuilder {...builderProps} />;
-      case 'MultipleChoice':
-        return <MultipleChoiceBuilder {...builderProps} />;
-      case 'Checkbox':
-        return <CheckboxBuilder {...builderProps} />;
-      case 'Dropdown':
-        return <DropdownBuilder {...builderProps} />;
-      case 'Switch':
-        return <SwitchBuilder {...builderProps} />;
-      case 'PictureChoice':
-        return <PictureChoiceBuilder {...builderProps} />;
-
-      default:
-        return null;
+      case 'Comprehension': return <ComprehensionBuilder {...builderProps} />;
+      case 'Categorize': return <CategorizeBuilder {...builderProps} />;
+      case 'Cloze': return <ClozeBuilder {...builderProps} />;
+      case 'Heading': return <HeadingBuilder {...builderProps} />;
+      case 'Paragraph': return <ParagraphBuilder {...builderProps} />;
+      case 'Banner': return <BannerBuilder {...builderProps} />;
+      case 'ShortAnswer': return <ShortAnswerBuilder {...builderProps} />;
+      case 'LongAnswer': return <LongAnswerBuilder {...builderProps} />;
+      case 'Email': return <EmailBuilder {...builderProps} />;
+      case 'MultipleChoice': return <MultipleChoiceBuilder {...builderProps} />;
+      case 'Checkbox': return <CheckboxBuilder {...builderProps} />;
+      case 'Dropdown': return <DropdownBuilder {...builderProps} />;
+      case 'Switch': return <SwitchBuilder {...builderProps} />;
+      case 'PictureChoice': return <PictureChoiceBuilder {...builderProps} />;
+      default: return null;
     }
   };
 
-  // --- Context to pass to FormEditorUI ---
   const outletContext = {
     form,
     loading: loading || isNamingModalOpen, 
@@ -367,7 +325,6 @@ const EditorLayout = () => {
         
       </main>
 
-      {/* --- "Name your form" Modal --- */}
       <AnimatePresence>
           {isNamingModalOpen && (
             <motion.div
@@ -386,12 +343,7 @@ const EditorLayout = () => {
                 className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md relative"
               >
                 {!isNewForm && (
-                  <button
-                    onClick={() => setIsNamingModalOpen(false)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
-                  >
-                    &times;
-                  </button>
+                  <button onClick={() => setIsNamingModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                 )}
                 <h3 className="text-2xl font-bold mb-6 text-gray-900">
                   {isNewForm ? 'Name your form' : 'Edit form name'}
@@ -416,7 +368,6 @@ const EditorLayout = () => {
           )}
         </AnimatePresence>
 
-      {/* --- Theme Selector Modal --- */}
        <AnimatePresence>
           {isThemeModalOpen && (
             <motion.div
@@ -424,7 +375,7 @@ const EditorLayout = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-              onClick={() => setIsThemeModalOpen(false)} // Close on overlay click
+              onClick={() => setIsThemeModalOpen(false)} 
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}

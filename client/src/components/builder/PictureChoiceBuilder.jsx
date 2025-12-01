@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // A single option with image upload
-const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove, onCorrectSet }) => {
+const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove, onCorrectSet, theme, isDark }) => {
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = async (e) => {
@@ -32,25 +32,34 @@ const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove,
   };
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-md">
+    <div className={`flex items-center gap-4 p-3 border rounded-md ${isDark ? 'bg-white/5 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
       <input
         type="radio"
         name="correct-pic-answer"
         checked={option.isCorrect}
         onChange={() => onCorrectSet(index)}
-        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300"
+        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
       />
-      <div className="w-16 h-16 rounded-md border border-gray-300 bg-gray-100 flex-shrink-0">
-        {option.image && <img src={option.image} alt="Option" className="w-full h-full object-cover rounded-md" />}
+      <div className={`w-16 h-16 rounded-md border flex-shrink-0 overflow-hidden ${isDark ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-gray-100'}`}>
+        {option.image ? (
+            <img src={option.image} alt="Option" className="w-full h-full object-cover" />
+        ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Img</div>
+        )}
       </div>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        className="text-sm text-gray-700 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        disabled={isUploading}
-      />
-      <button onClick={onRemove} className="text-red-500 hover:text-red-700 p-1 ml-auto" title="Remove option">
+      
+      <div className="flex-grow">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className={`block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold cursor-pointer ${isDark ? 'text-gray-300 file:bg-gray-700 file:text-white hover:file:bg-gray-600' : 'text-gray-700 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'}`}
+            disabled={isUploading}
+          />
+          {isUploading && <span className="text-xs text-blue-500 mt-1">Uploading...</span>}
+      </div>
+
+      <button onClick={onRemove} className="text-red-500 hover:text-red-700 p-2" title="Remove option">
         &#x2715;
       </button>
     </div>
@@ -58,12 +67,20 @@ const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove,
 };
 
 
-const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null }) => {
+const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState([
     { image: '', isCorrect: true },
     { image: '', isCorrect: false }
   ]);
+
+  const currentTheme = theme || { 
+    name: 'Light',
+    cardBg: 'bg-white', 
+    text: 'text-gray-900', 
+    input: 'bg-white border-gray-300 text-gray-900' 
+  };
+  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
@@ -113,25 +130,25 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null }) => {
       ...initialData, 
       type: 'PictureChoice', 
       text: questionText, 
-      options: options.map(opt => opt.image), // Save only the image URLs
+      options: options.map(opt => opt.image), 
       correctAnswer: correctOption ? correctOption.image : null
     });
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md mt-6 animate-fadeIn">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Picture Choice</h3>
+    <div className={`p-6 rounded-lg shadow-md mt-6 animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Picture Choice</h3>
       
-      <label className="block text-gray-700 font-semibold mb-2">Question Text</label>
+      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Question Text</label>
       <input
         type="text"
-        className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md text-gray-900 mb-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none mb-6 ${currentTheme.input}`}
         placeholder="Enter your question"
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
       />
 
-      <label className="block text-gray-700 font-semibold mb-2">Options (Select the correct one)</label>
+      <label className={`block font-semibold mb-3 ${currentTheme.text}`}>Options <span className="text-sm font-normal opacity-70">(Select the correct image)</span></label>
       <div className="space-y-3">
         {options.map((option, index) => (
           <PictureOption
@@ -141,16 +158,22 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null }) => {
             onImageUpload={handleImageUpload}
             onRemove={() => removeOption(index)}
             onCorrectSet={setCorrect}
+            theme={currentTheme}
+            isDark={isDark}
           />
         ))}
       </div>
-      <button onClick={addOption} className="mt-3 text-sm text-blue-600 hover:underline">
+      
+      <button 
+        onClick={addOption} 
+        className={`mt-4 text-sm font-medium py-2 px-4 rounded-md transition-colors border border-dashed ${isDark ? 'border-gray-500 text-blue-400 hover:bg-white/5' : 'border-gray-300 text-blue-600 hover:bg-blue-50'}`}
+      >
         + Add Picture
       </button>
 
-      <div className="flex justify-end gap-4 mt-8 border-t border-gray-200 pt-4">
-        <button onClick={onCancel} className="bg-gray-200 text-gray-800 py-2 px-5 rounded-md hover:bg-gray-300">Cancel</button>
-        <button onClick={handleSave} className="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700">Save</button>
+      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+        <button onClick={onCancel} className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
+        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save</button>
       </div>
     </div>
   );

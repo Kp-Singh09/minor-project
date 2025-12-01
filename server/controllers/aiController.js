@@ -22,17 +22,17 @@ const getSystemPrompt = () => {
           "correctAnswer": "The correct option text"
         },
         {
-          "type": "ShortAnswer",
-          "text": "Your short answer question?"
-          // Note: ShortAnswer does not have options or a correct answer
-        },
-        {
           "type": "Comprehension",
           "comprehensionPassage": "A short passage (2-4 sentences) for the user to read.",
           "mcqs": [
             {
-              "questionText": "A question about the passage?",
+              "questionText": "First question about the passage?",
               "options": ["Option 1", "Option 2", "Option 3"],
+              "correctAnswer": "The correct option text"
+            },
+            {
+              "questionText": "Second question about the passage?",
+              "options": ["Option A", "Option B", "Option C"],
               "correctAnswer": "The correct option text"
             }
           ]
@@ -57,9 +57,10 @@ const getSystemPrompt = () => {
     Rules:
     - Respond with a single, minified JSON object.
     - Do NOT use markdown (like \`\`\`json).
-    - ONLY use the question types: "MultipleChoice", "ShortAnswer", "Comprehension", "Categorize", "Cloze".
-    - Do not use other types like "Heading", "Paragraph", "Banner", "Email", "Checkbox", "Dropdown", "Switch", or "PictureChoice".
-    - Create between 3 and 7 questions.
+    - ONLY use the question types: "MultipleChoice", "Comprehension", "Categorize", "Cloze".
+    - Do not use "ShortAnswer", "Heading", "Paragraph", "Banner", "Email", "Checkbox", "Dropdown", "Switch", or "PictureChoice".
+    - Create between 3 and 7 questions total.
+    - For "Comprehension" questions, you MUST generate at least 2 distinct multiple-choice questions ('mcqs') inside the 'mcqs' array.
     - Ensure 'correctAnswer' for MultipleChoice exactly matches one of the strings in 'options'.
     - For 'Cloze', the number of strings in 'options' must exactly match the number of [BLANK] tags in the 'passage'.
   `;
@@ -107,9 +108,7 @@ export const generateFormWithAI = async (req, res) => {
             title: aiResponse.title,
             userId: userId,
             username: username || 'AI User',
-            // --- THIS IS THE FIX ---
-            theme: 'Light', // Changed from 'Default' to 'Light'
-            // --- END OF FIX ---
+            theme: 'Light', 
             questions: [],
         });
 
