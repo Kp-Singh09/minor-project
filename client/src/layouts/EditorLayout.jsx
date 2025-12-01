@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, useOutletContext, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
-import axios from 'axios';
+import api from '../api/axiosConfig'; // <--- 1. USE YOUR NEW API INSTANCE
+import { toast } from 'react-hot-toast'; // <--- 2. IMPORT TOAST
 import { motion, AnimatePresence } from 'framer-motion'; 
 
 // Import Layout Components
@@ -55,11 +56,11 @@ const EditorLayout = () => {
   useEffect(() => {
     const fetchForm = async (id) => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${id}`);
+        const response = await api.get(`/api/forms/${id}`); // Use api
         setForm(response.data);
         setTempTitle(response.data.title);
       } catch (err) {
-        console.error("Failed to fetch form", err);
+        // Error toast handled by axiosConfig
         navigate("/dashboard");
       } finally {
         setLoading(false);
@@ -87,7 +88,7 @@ const EditorLayout = () => {
   const refetchForm = useCallback(async (idToFetch) => {
     if (idToFetch) {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${idToFetch}`);
+        const response = await api.get(`/api/forms/${idToFetch}`); // Use api
         setForm(response.data);
         setTempTitle(response.data.title);
       } catch (err) {
@@ -98,7 +99,7 @@ const EditorLayout = () => {
 
   // --- Save/Update Form Title (from modal) ---
   const handleSaveTitle = async () => {
-    if (!user) return alert("You must be logged in.");
+    if (!user) return toast.error("You must be logged in.");
     const newTitle = tempTitle.trim() || 'Untitled Form';
 
     try {
@@ -121,49 +122,54 @@ const EditorLayout = () => {
                 payload.questions = template.data.questions;
             }
     
-            const formResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms`, payload);
+            const formResponse = await api.post(`/api/forms`, payload); // Use api
             
             setForm(formResponse.data);
             setIsNamingModalOpen(false);
+            toast.success("Form created!");
             navigate(`/editor/${formResponse.data._id}`, { replace: true });
         } else {
-            await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { title: newTitle });
+            await api.put(`/api/forms/${formId}`, { title: newTitle }); // Use api
             await refetchForm(formId); 
             setIsNamingModalOpen(false);
+            toast.success("Title updated");
         }
     } catch (err) {
         console.error("Failed to save form title", err);
-        alert("Could not save title. Please try again.");
     }
   };
 
   const handleSaveQuestion = async (questionData) => {
-    if (isNewForm) return alert("Please name your form first."); 
-    if (!user) return alert("You must be logged in.");
+    if (isNewForm) return toast.error("Please name your form first."); 
+    if (!user) return toast.error("You must be logged in.");
+
+    const toastId = toast.loading("Saving question...");
 
     try {
       if (editingQuestion) {
-        await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/questions/${editingQuestion._id}`, questionData);
+        await api.put(`/api/forms/questions/${editingQuestion._id}`, questionData);
       } else {
-        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions`, questionData);
+        await api.post(`/api/forms/${formId}/questions`, questionData);
       }
 
       setActiveBuilder(null);
       setEditingQuestion(null);
       await refetchForm(formId);
+      toast.success("Question saved!", { id: toastId });
 
     } catch (err) {
-      alert("Error: Could not save the question.");
+      toast.dismiss(toastId);
       console.error(err);
     }
   };
 
   const handleAddSimpleField = async (fieldType) => {
-    if (isNewForm) return alert("Please name your form first.");
-    if (!user) return alert("You must be logged in.");
+    if (isNewForm) return toast.error("Please name your form first.");
+    if (!user) return toast.error("You must be logged in.");
 
     let questionData = { type: fieldType };
 
+    // ... (Your existing switch case for default data) ...
     switch (fieldType) {
       case 'Heading': questionData.text = 'New Heading'; break;
       case 'Paragraph': questionData.text = 'This is a new paragraph. Click Edit to change this text.'; break;
@@ -194,39 +200,73 @@ const EditorLayout = () => {
         break;
     }
 
+    const toastId = toast.loading("Adding field...");
     try {
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions`, questionData);
+      await api.post(`/api/forms/${formId}/questions`, questionData);
       await refetchForm(formId);
       window.scrollTo(0, document.body.scrollHeight);
+      toast.success("Field added", { id: toastId });
     } catch (err) {
-      alert("Error: Could not add the new field.");
+      toast.dismiss(toastId);
       console.error(err);
     }
   };
 
-  const handleDeleteQuestion = async (questionId) => {
+  // --- REPLACED: New handleDeleteQuestion with Confirmation Toast ---
+  const handleDeleteQuestion = (questionId) => {
     if (isNewForm) return; 
-    if (window.confirm('Are you sure you want to delete this question?')) {
-      try {
-        await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}/questions/${questionId}`);
-        await refetchForm(formId);
-      } catch (err) {
-        alert('Failed to delete the question.');
-        console.error(err);
-      }
+
+    // Render a custom toast component
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <p className="font-semibold text-gray-800">Delete this question?</p>
+        <p className="text-sm text-gray-500">This action cannot be undone.</p>
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id); // Close the confirmation toast
+              performDeleteQuestion(questionId); // Trigger the actual delete
+            }}
+            className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-600 transition-colors"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), { duration: 5000, icon: '🗑️' });
+  };
+
+  // Helper function to execute the delete logic
+  const performDeleteQuestion = async (questionId) => {
+    const toastId = toast.loading("Deleting...");
+    try {
+      await api.delete(`/api/forms/${formId}/questions/${questionId}`);
+      await refetchForm(formId);
+      toast.success("Question deleted", { id: toastId });
+    } catch (err) {
+      toast.dismiss(toastId);
+      console.error(err);
     }
   };
   
   const handleThemeChange = async (newThemeName) => {
     if (isNewForm || !form) return; 
+    
+    // Optimistic update locally
+    setForm(prevForm => ({ ...prevForm, theme: newThemeName }));
+    
     try {
-      setForm(prevForm => ({ ...prevForm, theme: newThemeName }));
-      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`, { theme: newThemeName });
-      refetchForm(formId); 
+      await api.put(`/api/forms/${formId}`, { theme: newThemeName });
+      toast.success("Theme saved");
     } catch (err) {
       console.error("Failed to update theme", err);
-      alert("Could not update theme.");
-      refetchForm(formId); 
+      refetchForm(formId); // Revert on error
     }
   };
 
@@ -235,6 +275,7 @@ const EditorLayout = () => {
     if (isNamingModalOpen) {
       await handleSaveTitle();
     }
+    toast.success("Form saved!");
     navigate('/dashboard');
   };
 
@@ -246,10 +287,8 @@ const EditorLayout = () => {
     window.open(`/form/${formId}`, '_blank');
   };
 
-  // --- Determine Current Theme ---
   const currentTheme = form ? (themesObject[form.theme] || themesObject['Light']) : themesObject['Light'];
 
-  // --- Function to render the correct builder ---
   const renderBuilder = () => {
     const builderProps = {
       onSave: handleSaveQuestion,
@@ -258,7 +297,7 @@ const EditorLayout = () => {
         setEditingQuestion(null);
       },
       initialData: editingQuestion,
-      theme: currentTheme, // <--- 1. PASS THEME HERE
+      theme: currentTheme,
     };
 
     const builderType = editingQuestion ? editingQuestion.type : activeBuilder;
@@ -325,6 +364,7 @@ const EditorLayout = () => {
         
       </main>
 
+      {/* ... (Keep existing Modals for Naming and Theme) ... */}
       <AnimatePresence>
           {isNamingModalOpen && (
             <motion.div

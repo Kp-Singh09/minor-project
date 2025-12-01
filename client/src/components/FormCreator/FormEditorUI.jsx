@@ -1,10 +1,12 @@
 // client/src/components/FormCreator/FormEditorUI.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useOutletContext } from 'react-router-dom';
-import axios from 'axios';
+import axios from 'axios'; 
+import api from '../../api/axiosConfig'; 
+import { toast } from 'react-hot-toast';
 
-// --- DnD Imports ---
+// ... (DnD imports stay the same) ...
 import {
   DndContext, 
   closestCenter,
@@ -22,6 +24,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// ... (Keep SimpleTextCard, OptionsCard, etc. exactly as they were - no changes needed there) ...
+// ... (I will omit them here for brevity, but include them in your final file) ...
+
+// (Assuming all card components SimpleTextCard, OptionsCard, etc. are here...)
 // --- Card for Simple Text (Heading, Paragraph, ShortAnswer, Email, Switch, LongAnswer) ---
 const SimpleTextCard = ({ question, onEdit, onDelete, theme }) => {
   let content = null;
@@ -212,7 +218,7 @@ const SortableItem = ({ id, children, disabled }) => {
 
 const FormEditorUI = () => {
     const { 
-        form: originalForm, // Rename to avoid confusion with local state if needed, but we modify context state
+        form: originalForm, 
         loading, 
         themes, 
         activeBuilder, 
@@ -227,31 +233,11 @@ const FormEditorUI = () => {
         refetchForm 
     } = useOutletContext();
     
-    // We need local state for form questions to handle instant drag updates
-    // The 'form' from context is the source of truth, but for drag we need mutable local state
-    // Actually, let's trust that we can update the form object in the parent context or just force update here
-    // Ideally refetchForm updates the context. For smooth drag, we need local state.
+    const form = originalForm; 
     
-    // NOTE: In the current setup, 'form' is passed from EditorLayout. 
-    // We can't mutate it directly. We should probably have a local copy of questions.
-    const form = originalForm; // Short alias
-    
-    // We need to locally manage questions state for drag and drop to work smoothly
-    // without waiting for API response on every pixel move.
-    // However, EditorLayout controls the 'form' state.
-    // A quick fix: We will use a local variable for the list rendering that syncs with form.
-    
-    // Better: We assume 'form' object is what we render. But we can't setForm from here easily 
-    // unless we lift that state or pass a setter.
-    // 'refetchForm' fetches from server.
-    
-    // Workaround: We'll modify the array locally in the event handler and assume
-    // that a subsequent fetch will normalize it. 
-    // But modifying props is bad. 
-    // Let's create a local state for the sorted questions.
     const [sortedQuestions, setSortedQuestions] = useState([]);
     
-    React.useEffect(() => {
+    useEffect(() => {
         if (form && form.questions) {
             setSortedQuestions(form.questions);
         }
@@ -261,7 +247,7 @@ const FormEditorUI = () => {
     const fileInputRef = useRef(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), // 5px movement required to start drag
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), 
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
@@ -275,16 +261,12 @@ const FormEditorUI = () => {
             const newOrder = arrayMove(sortedQuestions, oldIndex, newIndex);
             setSortedQuestions(newOrder);
 
-            // Save new order to backend
             try {
                 const newQuestionIds = newOrder.map(q => q._id);
-                await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${form._id}`, { questions: newQuestionIds });
-                // We don't need to refetch immediately as local state is updated, but good for consistency
-                // refetchForm(form._id); 
+                await api.put(`/api/forms/${form._id}`, { questions: newQuestionIds });
+                toast.success('Order saved', { id: 'order-save', duration: 2000 });
             } catch (err) {
                 console.error("Failed to save reordered questions", err);
-                alert("Failed to save new order.");
-                // Revert on error
                 setSortedQuestions(form.questions);
             }
         }
@@ -294,8 +276,10 @@ const FormEditorUI = () => {
         const file = event.target.files[0];
         if (!file || isNewForm || !form) return;
 
+        const toastId = toast.loading("Uploading header image...");
+
         try {
-            const authResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/imagekit/auth`);
+            const authResponse = await api.get(`/api/imagekit/auth`);
             const formData = new FormData();
             formData.append('file', file);
             formData.append('fileName', file.name);
@@ -307,26 +291,55 @@ const FormEditorUI = () => {
             const uploadResponse = await axios.post('https://upload.imagekit.io/api/v1/files/upload', formData);
             const imageUrl = uploadResponse.data.url;
 
-            await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${form._id}`, { headerImage: imageUrl });
+            await api.put(`/api/forms/${form._id}`, { headerImage: imageUrl });
       
             if(refetchForm) refetchForm(form._id);
             
+            toast.success("Header image updated!", { id: toastId });
+            
         } catch (err) {
-            alert('Failed to upload header image.');
             console.error(err);
+            toast.error("Failed to upload header image.", { id: toastId });
         }
     };
 
-    const handleRemoveHeaderImage = async () => {
+    // --- REPLACED: New handleRemoveHeaderImage with Confirmation Toast ---
+    const handleRemoveHeaderImage = () => {
         if (!form) return;
-        if (window.confirm("Are you sure you want to remove the header image?")) {
-            try {
-                await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${form._id}`, { headerImage: null });
-                if (refetchForm) refetchForm(form._id);
-            } catch (err) {
-                console.error("Failed to remove header image", err);
-                alert("Could not remove header image.");
-            }
+        
+        toast((t) => (
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold text-gray-800">Remove header image?</p>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    performRemoveImage();
+                  }}
+                  className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-600 transition-colors"
+                >
+                  Remove
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+        ), { duration: 5000, icon: '🖼️' });
+    };
+
+    const performRemoveImage = async () => {
+        const toastId = toast.loading("Removing image...");
+        try {
+            await api.put(`/api/forms/${form._id}`, { headerImage: null });
+            if (refetchForm) refetchForm(form._id);
+            toast.success("Header image removed", { id: toastId });
+        } catch (err) {
+            console.error("Failed to remove header image", err);
+            toast.dismiss(toastId);
         }
     };
 
@@ -475,7 +488,6 @@ const FormEditorUI = () => {
                                         );
                                 }
 
-                                // --- Render Component + Inline Builder if editing ---
                                 return (
                                     <SortableItem key={q._id} id={q._id} disabled={!isReordering}>
                                         {QuestionComponent}
@@ -497,7 +509,6 @@ const FormEditorUI = () => {
                     </SortableContext>
                 </DndContext>
 
-                {/* --- Bottom Builder: Only for NEW questions --- */}
                 {(activeBuilder && !editingQuestion && !isReordering) && (
                     <div className="w-full max-w-2xl mt-6">
                         {renderBuilder()}
@@ -505,7 +516,6 @@ const FormEditorUI = () => {
                 )}
             </div>
 
-            {/* --- Buttons container --- */}
             <div className="w-full max-w-5xl mx-auto flex justify-end gap-4 mt-8">
                 <motion.button
                     whileHover={{ scale: 1.05 }}

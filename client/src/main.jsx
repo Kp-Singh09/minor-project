@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import { Toaster } from 'react-hot-toast';
 import './index.css';
 
 // Import all your components
@@ -94,6 +95,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
       <RouterProvider router={router} />
+      <Toaster position="bottom-right" toastOptions={{ duration: 3000 }} />
     </ClerkProvider>
   </React.StrictMode>
 );
