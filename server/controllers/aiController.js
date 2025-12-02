@@ -144,3 +144,70 @@ export const generateFormWithAI = async (req, res) => {
         res.status(500).json({ message: 'Failed to generate AI form.', error: error.message });
     }
 };
+
+export const generateQuestionFromImage = async (req, res) => {
+  const { imageBase64 } = req.body; 
+
+  if (!imageBase64) {
+    return res.status(400).json({ message: 'Image data is required.' });
+  }
+
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this image. It contains one or multiple multiple-choice questions.
+                     Extract ALL questions found.
+                     
+                     For each question, extract:
+                     1. The question text.
+                     2. The options.
+                     3. The correct answer (ONLY if explicitly marked/highlighted, otherwise leave null).
+                     
+                     Return a SINGLE JSON object with this exact structure (no markdown):
+                     {
+                       "questions": [
+                         {
+                           "type": "MultipleChoice",
+                           "text": "Question text here?",
+                           "options": ["Option A", "Option B", "Option C", "Option D"],
+                           "correctAnswer": "Option A" 
+                         }
+                       ]
+                     }`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageBase64,
+              },
+            },
+          ],
+        },
+      ],
+      // UPDATED MODEL HERE:
+      model: "meta-llama/llama-4-scout-17b-16e-instruct", 
+      temperature: 0,
+      response_format: { type: "json_object" },
+    });
+
+    const content = chatCompletion.choices[0]?.message?.content;
+    const aiResponse = JSON.parse(content || "{}");
+    
+    // Ensure we always return an array, even if AI returns a single object
+    const questions = aiResponse.questions || (aiResponse.type ? [aiResponse] : []);
+    
+    res.status(200).json({ questions });
+
+  } catch (error) {
+    console.error("Vision API Error:", error);
+    // Helpful error message for debugging
+    res.status(500).json({ message: 'Failed to process image.', error: error.message });
+  }
+};
