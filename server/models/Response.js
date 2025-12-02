@@ -6,13 +6,15 @@ const responseSchema = new mongoose.Schema({
   
   userId: { type: String, required: true },
   userEmail: { type: String, required: true },
+  username: { type: String, default: 'Anonymous' },
+  
   score: { type: Number, default: 0 },
   totalMarks: { type: Number, default: 0 },
   
   answers: [{
     questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
     answer: { type: mongoose.Schema.Types.Mixed, required: true },
-    points: { type: Number, default: 0 } // 👈 Add this field
+    points: { type: Number, default: 0 }
   }],
   submittedAt: { type: Date, default: Date.now }
 });

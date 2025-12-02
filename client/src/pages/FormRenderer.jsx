@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 
-// --- Import ALL Renderers ---
+// --- Renderers ---
 import ComprehensionRenderer from '../components/renderer/ComprehensionRenderer';
 import CategorizeRenderer from '../components/renderer/CategorizeRenderer';
 import ClozeRenderer from '../components/renderer/ClozeRenderer';
@@ -12,7 +12,7 @@ import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import BannerRenderer from '../components/renderer/BannerRenderer';
 import ShortAnswerRenderer from '../components/renderer/ShortAnswerRenderer';
-import LongAnswerRenderer from '../components/renderer/LongAnswerRenderer'; // <-- ADDED
+import LongAnswerRenderer from '../components/renderer/LongAnswerRenderer'; 
 import MultipleChoiceRenderer from '../components/renderer/MultipleChoiceRenderer';
 import EmailRenderer from '../components/renderer/EmailRenderer';
 import CheckboxRenderer from '../components/renderer/CheckboxRenderer';
@@ -20,16 +20,11 @@ import DropdownRenderer from '../components/renderer/DropdownRenderer';
 import SwitchRenderer from '../components/renderer/SwitchRenderer';
 import PictureChoiceRenderer from '../components/renderer/PictureChoiceRenderer';
 
-// --- Import themesObject AND themesArray ---
 import { themes as themesObject, themesArray } from '../themes';
-
-// 1. Import Header
 import Header from '../components/Header';
 
-// --- 2. Define the grid-only pattern (removed the base color) ---
 const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
 
-// --- Theme Switcher Component ---
 const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
   return (
     <div className="fixed right-4 z-50">
@@ -48,8 +43,6 @@ const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
     </div>
   );
 };
-// --- END: Theme Switcher Component ---
-
 
 const FormRenderer = () => {
   const { formId } = useParams();
@@ -88,11 +81,30 @@ const FormRenderer = () => {
     }
     try {
       setLoading(true); 
+      
+      // --- FIX: Robust Name Construction for Clerk ---
+      // 1. Try fullName directly
+      // 2. Try combining firstName + lastName
+      // 3. Try username
+      // 4. Fallback to "Anonymous"
+      let submitName = "Anonymous";
+      
+      if (user.fullName) {
+        submitName = user.fullName;
+      } else if (user.firstName) {
+        submitName = `${user.firstName} ${user.lastName || ''}`.trim();
+      } else if (user.username) {
+        submitName = user.username;
+      }
+
+      console.log("Submitting as:", submitName); // Debug log
+
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/responses`, {
         formId,
         answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
         userId: user.id,
         userEmail: user.primaryEmailAddress.emailAddress,
+        username: submitName, // Send the constructed name
       });
       
       const { responseId } = response.data;
@@ -103,6 +115,7 @@ const FormRenderer = () => {
       }
 
     } catch (err) {
+      console.error(err);
       alert('Error submitting form. Please try again.');
     } finally {
         setLoading(false);
@@ -110,7 +123,6 @@ const FormRenderer = () => {
   };
 
   const theme = themesObject[selectedThemeName] || themesObject['Light'];
-
   const darkThemes = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'];
   const currentThemeMode = darkThemes.includes(selectedThemeName) ? 'dark' : 'light';
 
@@ -123,7 +135,6 @@ const FormRenderer = () => {
   );
 
   return (
-    // --- 3. Apply the theme's background color AND the grid pattern ---
     <div className={`min-h-screen px-4 pb-16 transition-colors duration-300 ${theme.background} ${gridOnly}`}>
       
       <Header themeMode={currentThemeMode} />
@@ -134,7 +145,6 @@ const FormRenderer = () => {
       />
       
       <div className="max-w-4xl mx-auto">
-        {/* --- Form Header Canvas --- */}
         <div className={`p-8 rounded-lg shadow-md mb-10 text-center ${theme.cardBg}`}>
           {form.headerImage && (
             <img 
@@ -146,51 +156,28 @@ const FormRenderer = () => {
           <h1 className={`text-4xl font-bold ${theme.text}`}>{form.title}</h1>
         </div>
         
-        {/* --- Main Render Loop (This all works, just passing the new theme) --- */}
         <div className="space-y-8">
             {form.questions.map(question => {
                 switch (question.type) {
-                // Simple Display
-                case 'Heading':
-                    return <HeadingRenderer key={question._id} text={question.text} theme={theme} />;
-                case 'Paragraph':
-                    return <ParagraphRenderer key={question._id} text={question.text} theme={theme} />;
-                case 'Banner':
-                    return <BannerRenderer key={question._id} imageSrc={question.image} theme={theme} />;
-
-                // Simple Input
-                case 'ShortAnswer':
-                    return <ShortAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'LongAnswer': // <-- ADDED
-                    return <LongAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Email':
-                    return <EmailRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'MultipleChoice':
-                    return <MultipleChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Checkbox':
-                    return <CheckboxRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Dropdown':
-                    return <DropdownRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Switch':
-                    return <SwitchRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'PictureChoice':
-                    return <PictureChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-
-                // Complex Question
-                case 'Comprehension':
-                    return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Categorize':
-                    return <CategorizeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Cloze':
-                    return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                
-                default:
-                    return null;
+                case 'Heading': return <HeadingRenderer key={question._id} text={question.text} theme={theme} />;
+                case 'Paragraph': return <ParagraphRenderer key={question._id} text={question.text} theme={theme} />;
+                case 'Banner': return <BannerRenderer key={question._id} imageSrc={question.image} theme={theme} />;
+                case 'ShortAnswer': return <ShortAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'LongAnswer': return <LongAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Email': return <EmailRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'MultipleChoice': return <MultipleChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Checkbox': return <CheckboxRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Dropdown': return <DropdownRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Switch': return <SwitchRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'PictureChoice': return <PictureChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Comprehension': return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Categorize': return <CategorizeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                case 'Cloze': return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
+                default: return null;
                 }
             })}
         </div>
 
-        {/* Only show submit button if there are questions to answer */}
         {questionsToAnswer.length > 0 && (
           <div className="mt-12 text-center">
             <button onClick={handleSubmit} className={theme.button} disabled={loading}>

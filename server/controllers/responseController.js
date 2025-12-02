@@ -3,7 +3,6 @@ import Response from '../models/Response.js';
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
 
-// ... (getResponsesByUserId, getSingleResponseById, getResponsesByFormId remain the same)
 export const getResponsesByUserId = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -52,126 +51,123 @@ export const getResponsesByFormId = async (req, res) => {
     }
   };
 
+export const createResponse = async (req, res) => {
+  try {
+    // 1. Destructure username here
+    const { formId, answers, userId, userEmail, username } = req.body; 
 
-  export const createResponse = async (req, res) => {
-    try {
-      const { formId, answers, userId, userEmail } = req.body;
-  
-      if (!userId || !userEmail) {
-        return res.status(400).json({ message: 'User details are required.' });
-      }
-  
-      const form = await Form.findById(formId).populate('questions');
-      if (!form) {
-        return res.status(404).json({ message: 'Form not found' });
-      }
-  
-      let totalScore = 0;
-      const marksPerQuestion = 10;
+    if (!userId || !userEmail) {
+      return res.status(400).json({ message: 'User details are required.' });
+    }
 
-      // --- FIX 1: Only count scorable questions for the total marks ---
-      const SCORABLE_TYPES = [
-        'Comprehension', 'Categorize', 'Cloze', 
-        'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
-      ];
+    const form = await Form.findById(formId).populate('questions');
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+
+    let totalScore = 0;
+    const marksPerQuestion = 10;
+
+    // --- Only count scorable questions for the total marks ---
+    const SCORABLE_TYPES = [
+      'Comprehension', 'Categorize', 'Cloze', 
+      'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
+    ];
+    
+    const scorableQuestions = form.questions.filter(q => SCORABLE_TYPES.includes(q.type));
+    const totalMarks = scorableQuestions.length * 10;
+    
+    const processedAnswers = []; 
+
+    for (const submittedAnswer of answers) {
+      const question = form.questions.find(q => q._id.toString() === submittedAnswer.questionId);
+      if (!question) continue;
+
+      let questionScore = 0;
       
-      const scorableQuestions = form.questions.filter(q => SCORABLE_TYPES.includes(q.type));
-      const totalMarks = scorableQuestions.length * 10;
-      // --- END OF FIX 1 ---
-      
-      const processedAnswers = []; // To store answers with their calculated points
-  
-      for (const submittedAnswer of answers) {
-        const question = form.questions.find(q => q._id.toString() === submittedAnswer.questionId);
-        if (!question) continue;
-  
-        let questionScore = 0;
+      switch (question.type) {
+        // Complex Types
+        case 'Comprehension':
+          if (question.mcqs && question.mcqs.length > 0) {
+            const pointsPerMcq = marksPerQuestion / question.mcqs.length;
+            question.mcqs.forEach(mcq => {
+              if (submittedAnswer.answer[mcq._id.toString()] === mcq.correctAnswer) {
+                questionScore += pointsPerMcq;
+              }
+            });
+          }
+          break;
         
-        // --- FIX 2: Add cases for all scorable question types ---
-        switch (question.type) {
-          // Complex Types (already working)
-          case 'Comprehension':
-            if (question.mcqs && question.mcqs.length > 0) {
-              const pointsPerMcq = marksPerQuestion / question.mcqs.length;
-              question.mcqs.forEach(mcq => {
-                if (submittedAnswer.answer[mcq._id.toString()] === mcq.correctAnswer) {
-                  questionScore += pointsPerMcq;
-                }
-              });
-            }
-            break;
+        case 'Categorize':
+          if (question.items && question.items.length > 0) {
+            const pointsPerItem = marksPerQuestion / question.items.length;
+            question.items.forEach(item => {
+              const submittedCategory = Object.keys(submittedAnswer.answer).find(cat => 
+                Array.isArray(submittedAnswer.answer[cat]) && submittedAnswer.answer[cat].includes(item.text)
+              );
+              if (submittedCategory === item.category) {
+                questionScore += pointsPerItem;
+              }
+            });
+          }
+          break;
           
-          case 'Categorize':
-            if (question.items && question.items.length > 0) {
-              const pointsPerItem = marksPerQuestion / question.items.length;
-              question.items.forEach(item => {
-                const submittedCategory = Object.keys(submittedAnswer.answer).find(cat => 
-                  Array.isArray(submittedAnswer.answer[cat]) && submittedAnswer.answer[cat].includes(item.text)
-                );
-                if (submittedCategory === item.category) {
-                  questionScore += pointsPerItem;
-                }
-              });
-            }
-            break;
-            
-          case 'Cloze':
-            const correctClozeAnswers = question.options;
-            if (correctClozeAnswers && correctClozeAnswers.length > 0) {
-              const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
-              for (let i = 0; i < correctClozeAnswers.length; i++) {
-                if (submittedAnswer.answer[`blank_${i}`] === correctClozeAnswers[i]) {
-                  questionScore += pointsPerBlank;
-                }
+        case 'Cloze':
+          const correctClozeAnswers = question.options;
+          if (correctClozeAnswers && correctClozeAnswers.length > 0) {
+            const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
+            for (let i = 0; i < correctClozeAnswers.length; i++) {
+              if (submittedAnswer.answer[`blank_${i}`] === correctClozeAnswers[i]) {
+                questionScore += pointsPerBlank;
               }
             }
-            break;
+          }
+          break;
 
-          // Simple Scorable Types (NEW)
-          case 'MultipleChoice':
-          case 'Dropdown':
-          case 'PictureChoice':
-            if (submittedAnswer.answer === question.correctAnswer) {
-              questionScore = marksPerQuestion;
-            }
-            break;
+        // Simple Scorable Types
+        case 'MultipleChoice':
+        case 'Dropdown':
+        case 'PictureChoice':
+          if (submittedAnswer.answer === question.correctAnswer) {
+            questionScore = marksPerQuestion;
+          }
+          break;
 
-          case 'Checkbox':
-            const userAnswers = Array.isArray(submittedAnswer.answer) ? submittedAnswer.answer.sort() : [];
-            const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.sort() : [];
-            if (JSON.stringify(userAnswers) === JSON.stringify(correctAnswers)) {
-              questionScore = marksPerQuestion;
-            }
-            // Note: You could also add partial credit here if you wanted
-            break;
+        case 'Checkbox':
+          const userAnswers = Array.isArray(submittedAnswer.answer) ? submittedAnswer.answer.sort() : [];
+          const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.sort() : [];
+          if (JSON.stringify(userAnswers) === JSON.stringify(correctAnswers)) {
+            questionScore = marksPerQuestion;
+          }
+          break;
 
-          // Non-Scorable types (Email, ShortAnswer, Switch) will just get 0 points, which is fine.
-        }
-        // --- END OF FIX 2 ---
-  
-        totalScore += questionScore;
-        processedAnswers.push({
-          ...submittedAnswer,
-          points: Math.round(questionScore) // Save the calculated points for this answer
-        });
+        // Non-Scorable types (Email, ShortAnswer, Switch) get 0 points by default
       }
-  
-      const newResponse = new Response({
-        formId,
-        answers: processedAnswers, // Use the new array with points
-        userId,
-        userEmail,
-        score: Math.round(totalScore),
-        totalMarks
+
+      totalScore += questionScore;
+      processedAnswers.push({
+        ...submittedAnswer,
+        points: Math.round(questionScore)
       });
-      
-      const savedResponse = await newResponse.save();
-      form.responses.push(savedResponse._id);
-      await form.save();
-  
-      res.status(201).json({ message: 'Response submitted successfully!', responseId: savedResponse._id });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server Error: Could not submit response', error });
     }
-  };
+
+    const newResponse = new Response({
+      formId,
+      answers: processedAnswers, 
+      userId,
+      userEmail,
+      username: username || 'Anonymous', // 2. Save the username
+      score: Math.round(totalScore),
+      totalMarks
+    });
+    
+    const savedResponse = await newResponse.save();
+    form.responses.push(savedResponse._id);
+    await form.save();
+
+    res.status(201).json({ message: 'Response submitted successfully!', responseId: savedResponse._id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error: Could not submit response', error });
+  }
+};

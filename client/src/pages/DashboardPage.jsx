@@ -45,6 +45,7 @@ const DashboardPage = () => {
     setFormType(null);
     setImportedQuestions([]);
     setSelectedTemplateId(null);
+    setAiPrompt(""); // Reset prompt on close
   };
 
   // --- 1. Selection Handlers ---
@@ -67,7 +68,7 @@ const DashboardPage = () => {
     setModalStage('theme'); 
   };
 
-  // --- 2. Final Creation Logic ---
+  // --- 2. Final Creation Logic (for Blank, Template, Import) ---
   const handleThemeCreate = async (theme) => {
     // If it's an IMPORT, we create the form immediately (like AI)
     if (formType === 'import') {
@@ -82,6 +83,7 @@ const DashboardPage = () => {
             
             toast.success("Form created from import!");
             refetchForms();
+            // Redirect to editor
             window.open(`/editor/${response.data._id}`, '_blank');
             handleClose();
         } catch (error) {
@@ -102,8 +104,6 @@ const DashboardPage = () => {
     }
   };
 
-  // ... (Keep existing handleShare, handleDelete, handleAiSubmit etc.) ...
-  // Re-include handleShare, handleDelete logic from your original file here
   const handleShare = (formId, event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -121,12 +121,53 @@ const DashboardPage = () => {
       try {
         await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
         refetchForms();
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        console.error(error); 
+        toast.error("Failed to delete form");
+      }
     }
   };
 
-  const handleAiSubmit = async () => { /* ... existing logic ... */ };
-  // (You can copy your existing AI logic back here)
+  // --- 3. AI Submission Logic (UPDATED) ---
+  const handleAiSubmit = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please describe your quiz first.");
+      return;
+    }
+
+    setIsAiLoading(true);
+
+    try {
+      // 1. Call the AI generation endpoint
+      const response = await api.post('/api/ai/generate', {
+        prompt: aiPrompt,
+        userId: user.id,
+        username: user.fullName || user.primaryEmailAddress?.emailAddress || 'User',
+      });
+
+      // 2. Extract the new formId from the response
+      const { formId } = response.data;
+
+      if (formId) {
+        toast.success("AI Form generated successfully!");
+        
+        // 3. Refresh the dashboard list
+        refetchForms();
+
+        // 4. Redirect to the editor immediately
+        // Use window.open to open in a new tab (consistent with other creation flows)
+        window.open(`/editor/${formId}`, '_blank'); 
+        
+        // 5. Close the modal
+        handleClose();
+      }
+    } catch (error) {
+      console.error("AI Error:", error);
+      // Detailed error is handled by axiosConfig toast, but logging here helps debugging
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   return (
     <>
@@ -150,7 +191,14 @@ const DashboardPage = () => {
               )}
 
               {modalStage === 'ai' && (
-                <AiPromptModal /* ... props */ onCancel={handleClose} />
+                <AiPromptModal 
+                    prompt={aiPrompt}
+                    setPrompt={setAiPrompt}
+                    isLoading={isAiLoading}
+                    onSubmit={handleAiSubmit}
+                    onBack={() => setModalStage('start')}
+                    onCancel={handleClose} 
+                />
               )}
 
               {modalStage === 'template' && (
@@ -195,7 +243,7 @@ const DashboardPage = () => {
         )}
       </AnimatePresence>
       
-      {/* ... (Keep existing Dashboard grid list code) ... */}
+      {/* --- DASHBOARD CONTENT --- */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex justify-between items-center mb-10">
               <h1 className="text-4xl font-bold text-gray-900">Your Forms</h1>
@@ -208,8 +256,7 @@ const DashboardPage = () => {
                   + Create New Form
               </motion.button>
           </div>
-          {/* ... Grid of forms ... */}
-          {/* Copy paste your existing Grid code here */}
+          
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {forms.length > 0 ? (
                   forms.map((form) => (

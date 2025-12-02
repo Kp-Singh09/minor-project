@@ -126,31 +126,47 @@ const ImportModal = ({ type, onDataReady, onBack, onCancel }) => {
                     Import from {type === 'image' ? 'Image' : 'Excel / CSV'}
                 </h2>
                 
-                {/* --- HOVERABLE REQUIRED FORMAT TOOLTIP --- */}
+                {/* --- UPDATED FORMAT TOOLTIP --- */}
                 {type === 'file' && (
                     <div className="group relative">
                         <span className="cursor-help text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
                             Required Format ℹ️
                         </span>
-                        {/* Tooltip Content */}
-                        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-96 p-4 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        {/* Tooltip Content - Widened to fit all columns */}
+                        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-[32rem] p-4 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                             <p className="font-bold mb-2 text-gray-300">Expected Columns:</p>
-                            <table className="w-full mb-3 border-collapse text-left">
-                                <thead>
-                                    <tr className="border-b border-gray-600 text-gray-400">
-                                        <th className="py-1">Question</th>
-                                        <th className="py-1">Option 1...</th>
-                                        <th className="py-1">Correct Answer</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr className="text-gray-300">
-                                        <td className="py-1">2 + 2?</td>
-                                        <td className="py-1">3, 4, 5, 6</td>
-                                        <td className="py-1">4</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <div className="overflow-x-auto">
+                                <table className="w-full mb-3 border-collapse text-left text-[10px]">
+                                    <thead>
+                                        <tr className="border-b border-gray-600 text-gray-400">
+                                            <th className="py-1 px-1">Question</th>
+                                            <th className="py-1 px-1">Option 1</th>
+                                            <th className="py-1 px-1">Option 2</th>
+                                            <th className="py-1 px-1">Option 3</th>
+                                            <th className="py-1 px-1">Option 4</th>
+                                            <th className="py-1 px-1">Correct Answer</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="text-gray-300">
+                                            <td className="py-1 px-1">What is 2 + 2?</td>
+                                            <td className="py-1 px-1">3</td>
+                                            <td className="py-1 px-1">4</td>
+                                            <td className="py-1 px-1">5</td>
+                                            <td className="py-1 px-1">6</td>
+                                            <td className="py-1 px-1">4</td>
+                                        </tr>
+                                        <tr className="text-gray-500">
+                                            <td className="py-1 px-1">...</td>
+                                            <td className="py-1 px-1">...</td>
+                                            <td className="py-1 px-1">...</td>
+                                            <td className="py-1 px-1">...</td>
+                                            <td className="py-1 px-1">...</td>
+                                            <td className="py-1 px-1">...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                             <p className="font-bold mb-1 text-gray-300">CSV Example:</p>
                             <code className="block bg-gray-900 p-2 rounded border border-gray-700 text-green-400 font-mono break-words">
                                 Question,Option 1,Option 2,Option 3,Option 4,Correct Answer
@@ -214,7 +230,6 @@ const ImportModal = ({ type, onDataReady, onBack, onCancel }) => {
                                 <span className="text-xl">{type === 'image' ? '🖼️' : '📂'}</span>
                                 Select {type === 'image' ? 'Image' : 'File'}
                             </button>
-                            {/* Removed the instruction text below button as requested */}
                         </>
                     )}
                 </div>

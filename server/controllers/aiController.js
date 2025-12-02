@@ -45,11 +45,6 @@ const getSystemPrompt = () => {
             { "text": "Item 2", "category": "Category B" },
             { "text": "Item 3", "category": "Category A" }
           ]
-        },
-        {
-          "type": "Cloze",
-          "passage": "This is a passage with a [BLANK] and another [BLANK].",
-          "options": ["blank_word_1", "blank_word_2"]
         }
       ]
     }
@@ -57,12 +52,11 @@ const getSystemPrompt = () => {
     Rules:
     - Respond with a single, minified JSON object.
     - Do NOT use markdown (like \`\`\`json).
-    - ONLY use the question types: "MultipleChoice", "Comprehension", "Categorize", "Cloze".
-    - Do not use "ShortAnswer", "Heading", "Paragraph", "Banner", "Email", "Checkbox", "Dropdown", "Switch", or "PictureChoice".
+    - ONLY use the question types: "MultipleChoice", "Comprehension", "Categorize".
+    - Do not use "ShortAnswer", "Heading", "Paragraph", "Banner", "Email", "Checkbox", "Dropdown", "Switch", "PictureChoice", or "Cloze".
     - Create between 3 and 7 questions total.
     - For "Comprehension" questions, you MUST generate at least 2 distinct multiple-choice questions ('mcqs') inside the 'mcqs' array.
     - Ensure 'correctAnswer' for MultipleChoice exactly matches one of the strings in 'options'.
-    - For 'Cloze', the number of strings in 'options' must exactly match the number of [BLANK] tags in the 'passage'.
   `;
 };
 
@@ -122,7 +116,7 @@ export const generateFormWithAI = async (req, res) => {
                 correctAnswer: qData.correctAnswer,
                 categories: qData.categories,
                 items: qData.items,
-                passage: qData.passage,
+                // Cloze fields removed from here as they are no longer generated
                 comprehensionPassage: qData.comprehensionPassage,
                 mcqs: qData.mcqs,
             };
@@ -192,7 +186,7 @@ export const generateQuestionFromImage = async (req, res) => {
         },
       ],
       // UPDATED MODEL HERE:
-      model: "meta-llama/llama-4-scout-17b-16e-instruct", 
+      model: "meta-llama/llama-3.2-11b-vision-preview", 
       temperature: 0,
       response_format: { type: "json_object" },
     });
