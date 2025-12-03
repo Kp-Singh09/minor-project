@@ -62,13 +62,10 @@ const getSystemPrompt = () => {
 
 export const generateFormWithAI = async (req, res) => {
     const { prompt, userId, username } = req.body;
-
     if (!prompt || !userId) {
         return res.status(400).json({ message: 'Prompt and User ID are required.' });
     }
-
     try {
-        // Initialize Groq inside the function to ensure .env is loaded
         const groq = new Groq({
             apiKey: process.env.GROQ_API_KEY
         });
@@ -87,17 +84,11 @@ export const generateFormWithAI = async (req, res) => {
                 }
             ],
             model: "llama-3.1-8b-instant",
-            response_format: { type: "json_object" } // Request JSON directly
+            response_format: { type: "json_object" }
         });
 
         const text = chatCompletion.choices[0]?.message?.content || "";
-
-        // Parse the JSON string from Groq
         const aiResponse = JSON.parse(text);
-
-        // --- Create the Form in the Database ---
-
-        // 1. Create the Form document
         const newForm = new Form({
             title: aiResponse.title,
             userId: userId,
@@ -106,7 +97,6 @@ export const generateFormWithAI = async (req, res) => {
             questions: [],
         });
 
-        // 2. Create and save all Question documents
         const questionIds = [];
         for (const qData of aiResponse.questions) {
             const questionPayload = {
@@ -116,7 +106,6 @@ export const generateFormWithAI = async (req, res) => {
                 correctAnswer: qData.correctAnswer,
                 categories: qData.categories,
                 items: qData.items,
-                // Cloze fields removed from here as they are no longer generated
                 comprehensionPassage: qData.comprehensionPassage,
                 mcqs: qData.mcqs,
             };
@@ -126,11 +115,8 @@ export const generateFormWithAI = async (req, res) => {
             questionIds.push(newQuestion._id);
         }
 
-        // 3. Add question IDs to the form and save the form
         newForm.questions = questionIds;
         await newForm.save();
-
-        // 4. Send the new form's ID back to the client
         res.status(201).json({ formId: newForm._id });
 
     } catch (error) {
@@ -185,7 +171,6 @@ export const generateQuestionFromImage = async (req, res) => {
           ],
         },
       ],
-      // UPDATED MODEL HERE:
       model: "meta-llama/llama-3.2-11b-vision-preview", 
       temperature: 0,
       response_format: { type: "json_object" },
@@ -193,15 +178,12 @@ export const generateQuestionFromImage = async (req, res) => {
 
     const content = chatCompletion.choices[0]?.message?.content;
     const aiResponse = JSON.parse(content || "{}");
-    
-    // Ensure we always return an array, even if AI returns a single object
     const questions = aiResponse.questions || (aiResponse.type ? [aiResponse] : []);
     
     res.status(200).json({ questions });
 
   } catch (error) {
     console.error("Vision API Error:", error);
-    // Helpful error message for debugging
     res.status(500).json({ message: 'Failed to process image.', error: error.message });
   }
 };
