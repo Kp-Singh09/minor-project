@@ -153,7 +153,7 @@ export default function HomePage() {
 
         {/* FOOTER */}
         <footer className="text-center text-gray-500 py-6 mt-20 ">
-          <p className="mb-2">
+          {/* <p className="mb-2">
               Made by{' '}
               <a 
                 href="https://portfolio-kp-singh.vercel.app/" 
@@ -163,7 +163,7 @@ export default function HomePage() {
               >
                 Karanpreet Singh
               </a>
-            </p>
+            </p> */}
           <div className="flex justify-center space-x-4">
             {/* GitHub Link */}
             <a 
