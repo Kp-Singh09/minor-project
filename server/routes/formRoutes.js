@@ -8,7 +8,9 @@ import {
     getFormsByUser, 
     deleteForm,
     updateQuestion,
-    deleteQuestionFromForm
+    deleteQuestionFromForm,
+    getFormVersions,   // NEW
+    rollbackToVersion  // NEW
 } from '../controllers/formController.js';
 
 const router = express.Router();
@@ -20,7 +22,11 @@ router.put('/:id', updateForm);
 router.post('/:id/questions', addQuestionToForm);
 router.delete('/:id', deleteForm);
 
-// --- NEW ROUTES ---
+// --- VERSIONING ROUTES ---
+router.get('/:id/versions', getFormVersions);
+router.post('/versions/:versionId/rollback', rollbackToVersion);
+
+// --- QUESTION ROUTES ---
 router.put('/questions/:questionId', updateQuestion);
 router.delete('/:formId/questions/:questionId', deleteQuestionFromForm);
 

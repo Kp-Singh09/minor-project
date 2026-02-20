@@ -1,92 +1,55 @@
-// src/components/VerticalSidebar.jsx
-import { NavLink, Link, useParams } from "react-router-dom";
-import { useState, useContext } from 'react';
-import { motion, AnimatePresence } from "framer-motion";
-import { FormsContext } from "../pages/ProtectedLayout"; // Import the context
+// client/src/components/VerticalSidebar.jsx
+import { motion } from 'framer-motion';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, FileText, BarChart3, PlusCircle, LogOut } from 'lucide-react';
+import { SignOutButton } from '@clerk/clerk-react';
 
 const navItems = [
-    { href: "/dashboard", title: "Dashboard", icon: <span>📊</span> },
-    { href: "/responses", title: "Responses", icon: <span>📈</span> },
-    { href: "/submissions", title: "My Submissions", icon: <span>✅</span> },
-    { href: "/stats", title: "Stats", icon: <span>⭐</span> },
-  ];
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  // Changed path to /dashboard temporarily to avoid 404 until we build these pages
+  { name: 'My Forms', path: '/dashboard', icon: FileText }, 
+  { name: 'Analytics', path: '/dashboard', icon: BarChart3 },
+];
 
-const VerticalSidebar = () => {
-  const { formId } = useParams();
-  const { userForms } = useContext(FormsContext); // Consume the context
-  const [isFormsExpanded, setIsFormsExpanded] = useState(true);
+export default function VerticalSidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
-    <aside className="fixed top-0 left-0 w-64 h-full bg-sky-100  z-40 flex flex-col">
-      <div className="h-20 flex items-center px-6 border-b border-sky-300/70 flex-shrink-0">
-        <Link to="/" className="text-3xl font-bold text-slate-800 drop-shadow-md">
-          Form<span className="text-blue-600">ify</span>
-        </Link>
-      </div>
+    <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[100] flex flex-col gap-4">
+      <motion.div 
+        initial={{ x: -100, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        className="glass-card p-3 flex flex-col gap-2 border-white/10 bg-black/40 backdrop-blur-xl"
+      >
+        <button 
+          onClick={() => navigate('/editor/new')}
+          className="p-3 mb-4 rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 group"
+        >
+          <PlusCircle size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+        </button>
 
-      <nav className="p-4 flex-shrink-0 border-r border-sky-300/70">
-        <div className="flex flex-col gap-4">
-          {navItems.map((item, index) => (
-            <motion.div key={index} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <NavLink
-                to={item.href}
-                className={({ isActive }) =>
-                  `flex items-center gap-4 px-4 py-3 rounded-lg transition-colors text-lg font-medium ${
-                    isActive && !formId
-                      ? "bg-sky-500 text-white font-bold shadow-md"
-                      : "text-gray-700 hover:bg-sky-300/50 hover:text-gray-800"
-                  }`
-                }
-              >
-                <span className="text-2xl">{item.icon}</span>
-                {item.title}
-              </NavLink>
-            </motion.div>
-          ))}
-        </div>
-      </nav>
+        {navItems.map((item) => (
+          <div key={item.name} className="relative group">
+            <button
+              onClick={() => navigate(item.path)}
+              className={`p-3 rounded-xl transition-all relative z-10 ${
+                location.pathname === item.path ? 'text-white bg-white/10' : 'text-white/40 hover:text-white'
+              }`}
+            >
+              <item.icon size={22} />
+            </button>
+          </div>
+        ))}
 
-      <div className="p-4 pt-0 flex flex-col flex-grow min-h-0">
-          <button
-              onClick={() => setIsFormsExpanded(!isFormsExpanded)}
-              className="w-full flex justify-between items-center text-left text-sm font-semibold text-sky-800/60 px-4 py-2 rounded-md hover:bg-sky-300/40 flex-shrink-0"
-          >
-              <span>CREATED FORMS</span>
-              <motion.span animate={{ rotate: isFormsExpanded ? 0 : -90 }}>▼</motion.span>
+        <div className="h-px bg-white/10 my-2" />
+
+        <SignOutButton>
+          <button className="p-3 rounded-xl text-white/40 hover:text-red-400 transition-all">
+            <LogOut size={22} />
           </button>
-          <AnimatePresence>
-              {isFormsExpanded && (
-                  <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                  >
-                      <div className="mt-2 space-y-1 overflow-y-auto pr-2" style={{ maxHeight: 'calc(100% - 1rem)' }}>
-                          {userForms.length > 0 ? userForms.map(form => (
-                              <NavLink
-                                  key={form._id}
-                                  to={`/editor/${form._id}`}
-                                  className={({ isActive }) =>
-                                      `block text-sm px-4 py-2 rounded-md truncate ${
-                                          isActive
-                                          ? 'bg-sky-300/70 text-sky-900 font-semibold'
-                                          : 'text-gray-600 hover:bg-sky-300/40 hover:text-gray-800'
-                                      }`
-                                  }
-                              >
-                                  {form.title}
-                              </NavLink>
-                          )) : (
-                              <p className="text-xs text-slate-500 px-4 py-2">No forms created yet.</p>
-                          )}
-                      </div>
-                  </motion.div>
-              )}
-          </AnimatePresence>
-      </div>
-    </aside>
+        </SignOutButton>
+      </motion.div>
+    </div>
   );
-};
-
-export default VerticalSidebar;
+}

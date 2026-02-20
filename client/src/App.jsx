@@ -1,10 +1,13 @@
-// src/App.jsx
+// client/src/App.jsx
 import { Outlet } from 'react-router-dom';
 
 function App() {
-  // The Header is removed from here.
-  // Layouts are now handled by specific route groups (PublicLayout and ProtectedLayout).
-  return <Outlet />;
+  // We keep this as lean as possible to ensure children render
+  return (
+    <div className="min-h-screen w-full bg-[#050505]">
+      <Outlet />
+    </div>
+  );
 }
 
 export default App;

@@ -1,17 +1,44 @@
-// /server/models/Form.js
+// server/models/Form.js
 import mongoose from 'mongoose';
 
 const formSchema = new mongoose.Schema({
-  // --- ADD THIS LINE ---
-  userId: { type: String, required: true },
-  username: { type: String, default: 'Anonymous' },
-  title: { type: String, default: 'Untitled Form' },
-  theme: { type: String, default: 'Default' }, // 👈 ADD THIS LINE
-  headerImage: { type: String, default: null }, 
-  questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
-  responses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Response' }],
-  createdAt: { type: Date, default: Date.now },
-});
+  title: { 
+    type: String, 
+    required: true
+  },
+  headerImage: { 
+    type: String 
+  },
+  creatorId: { 
+    type: String, 
+    required: true
+  },
+  questions: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Question'
+  }],
+  // NEW: Production-Grade System Fields
+  isPublished: { 
+    type: Boolean, 
+    default: false 
+  },
+  version: { 
+    type: Number, 
+    default: 1 
+  },
+  settings: {
+    password: { 
+      type: String, 
+      select: false // Password won't be sent in standard queries
+    },
+    expiresAt: { 
+      type: Date // For TTL auto-expiring links
+    },
+    allowedRoles: { 
+      type: [String], 
+      default: ['viewer'] // For granular RBAC
+    }
+  }
+}, { timestamps: true });
 
-const Form = mongoose.model('Form', formSchema);
-export default Form;
+export default mongoose.model('Form', formSchema);

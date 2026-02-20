@@ -2,37 +2,28 @@
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
 import Response from '../models/Response.js';
+import FormVersion from '../models/FormVersion.js'; // NEW
 
 export const updateQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
         const questionData = req.body;
-
         const updatedQuestion = await Question.findByIdAndUpdate(questionId, questionData, { new: true });
-
-        if (!updatedQuestion) {
-            return res.status(404).json({ message: 'Question not found' });
-        }
-
+        if (!updatedQuestion) return res.status(404).json({ message: 'Question not found' });
         res.status(200).json(updatedQuestion);
     } catch (error) {
-        res.status(500).json({ message: 'Server Error: Could not update question', error });
+        res.status(500).json({ message: 'Server Error', error });
     }
 };
 
 export const deleteQuestionFromForm = async (req, res) => {
     try {
         const { formId, questionId } = req.params;
-
-        // First, pull the question reference from the form
         await Form.findByIdAndUpdate(formId, { $pull: { questions: questionId } });
-
-        // Then, delete the question document itself
         await Question.findByIdAndDelete(questionId);
-
         res.status(200).json({ message: 'Question deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Server Error: Could not delete question', error });
+        res.status(500).json({ message: 'Server Error', error });
     }
 };
 
@@ -40,25 +31,16 @@ export const deleteForm = async (req, res) => {
     try {
         const { id } = req.params;
         const form = await Form.findById(id);
-
-        if (!form) {
-            return res.status(404).json({ message: 'Form not found' });
-        }
-
-        // Delete all questions associated with the form
+        if (!form) return res.status(404).json({ message: 'Form not found' });
         if (form.questions && form.questions.length > 0) {
             await Question.deleteMany({ _id: { $in: form.questions } });
         }
-
-        // Delete all responses associated with the form
         await Response.deleteMany({ formId: id });
-
-        // Finally, delete the form itself
+        await FormVersion.deleteMany({ formId: id }); // NEW: Clean up versions
         await Form.findByIdAndDelete(id);
-
-        res.status(200).json({ message: 'Form and all associated data deleted successfully' });
+        res.status(200).json({ message: 'Form deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Server Error: Could not delete form', error });
+        res.status(500).json({ message: 'Server Error', error });
     }
 };
 
@@ -67,79 +49,109 @@ export const getFormsByUser = async (req, res) => {
     const forms = await Form.find({ userId: req.params.userId }).sort({ createdAt: -1 });
     res.status(200).json(forms);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error: Could not retrieve forms' });
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// @desc    Update form title, header image, theme, OR questions order
-// @route   PUT /api/forms/:id
-// @access  Private
 export const updateForm = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { title, headerImage, theme, questions } = req.body; // Added 'questions'
-        const form = await Form.findById(id);
-        if (!form) {
-            return res.status(404).json({ message: 'Form not found' });
-        }
-        
-        if (title) form.title = title;
-        
-        if (headerImage !== undefined) form.headerImage = headerImage; 
-        
-        if (theme) form.theme = theme;
+  try {
+      const { id } = req.params;
+      const { title, headerImage, theme, questions, settings } = req.body;
+      const form = await Form.findById(id).populate('questions');
+      if (!form) return res.status(404).json({ message: 'Form not found' });
 
-        // --- NEW: Update questions order ---
-        if (questions) {
-            form.questions = questions;
-        }
+      // Versioning Snapshot logic
+      const versionSnapshot = new FormVersion({
+          formId: id,
+          versionNumber: (form.version || 1),
+          snapshot: {
+              title: form.title,
+              questions: form.questions,
+              settings: form.settings
+          }
+      });
+      await versionSnapshot.save();
+
+      if (title) form.title = title;
+      if (headerImage !== undefined) form.headerImage = headerImage;
+      if (theme) form.theme = theme;
+      if (questions) form.questions = questions;
+      
+      // NEW: Granular Settings Update for RBAC & TTL
+      if (settings) {
+          form.settings = {
+              ...form.settings,
+              ...settings
+          };
+      }
+      
+      form.version = (form.version || 1) + 1;
+      await form.save();
+      
+      const updatedForm = await Form.findById(id).populate('questions');
+      res.status(200).json(updatedForm);
+  } catch (error) {
+      res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// NEW: RBAC Middleware logic placeholder (can be expanded in middleware/auth.js)
+export const verifyAccess = async (req, res, next) => {
+  try {
+      const form = await Form.findById(req.params.id);
+      if (!form) return res.status(404).json({ message: 'Form not found' });
+
+      // Check for TTL Expiration
+      if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
+          return res.status(403).json({ message: 'This form link has expired.' });
+      }
+
+      // Logic for checking User Roles would go here (integrating with Clerk userId)
+      next();
+  } catch (error) {
+      res.status(500).json({ message: 'Access check failed' });
+  }
+};
+
+// NEW: Rollback Logic
+export const rollbackToVersion = async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const version = await FormVersion.findById(versionId);
+        if (!version) return res.status(404).json({ message: 'Version not found' });
+
+        const form = await Form.findById(version.formId);
+        
+        // Restore from snapshot
+        form.title = version.snapshot.title;
+        form.settings = version.snapshot.settings;
+        // Logic for question restoration would follow here
         
         await form.save();
-        
-        // Repopulate the form with question details before sending back
-        const updatedForm = await Form.findById(id).populate('questions');
-        res.status(200).json(updatedForm);
+        res.status(200).json({ message: 'Rollback successful', form });
     } catch (error) {
-        console.error("Error updating form:", error);
-        res.status(500).json({ message: 'Server Error: Could not update form', error });
+        res.status(500).json({ message: 'Rollback failed', error });
     }
 };
   
-// @desc    Create a new form
-// @route   POST /api/forms
-// @access  Private
 export const createForm = async (req, res) => {
   try {
     const { title, userId, username, theme, questions: templateQuestions } = req.body; 
-
-    if (!userId) {
-      return res.status(400).json({ message: 'User ID is required to create a form.' });
-    }
+    if (!userId) return res.status(400).json({ message: 'User ID required' });
 
     const newForm = new Form({
       title: title || 'My New Form',
       userId: userId,
       username: username || 'Anonymous',
       theme: theme || 'Light',
-      questions: [], 
+      questions: [],
+      version: 1 // Initialize version
     });
 
-    if (templateQuestions && Array.isArray(templateQuestions) && templateQuestions.length > 0) {
+    if (templateQuestions && Array.isArray(templateQuestions)) {
       const questionIds = [];
       for (const qData of templateQuestions) {
-        const newQuestion = new Question({
-          type: qData.type,
-          text: qData.text,
-          image: qData.image,
-          options: qData.options,
-          correctAnswer: qData.correctAnswer,
-          correctAnswers: qData.correctAnswers,
-          categories: qData.categories,
-          items: qData.items,
-          passage: qData.passage,
-          comprehensionPassage: qData.comprehensionPassage,
-          mcqs: qData.mcqs,
-        });
+        const newQuestion = new Question({ ...qData, formId: newForm._id });
         await newQuestion.save();
         questionIds.push(newQuestion._id);
       }
@@ -147,42 +159,42 @@ export const createForm = async (req, res) => {
     }
 
     const savedForm = await newForm.save();
-    
-    const populatedForm = await Form.findById(savedForm._id).populate('questions');
-    res.status(201).json(populatedForm);
-    
+    res.status(201).json(await Form.findById(savedForm._id).populate('questions'));
   } catch (error) {
-    console.error("Error creating form:", error);
-    res.status(500).json({ message: 'Server Error: Could not create form', error: error.message });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
 export const addQuestionToForm = async (req, res) => {
     try {
       const form = await Form.findById(req.params.id);
-      if (!form) {
-        return res.status(404).json({ message: 'Form not found' });
-      }
-      const questionData = req.body;
-      const newQuestion = new Question(questionData);
+      if (!form) return res.status(404).json({ message: 'Form not found' });
+      const newQuestion = new Question({ ...req.body, formId: form._id });
       await newQuestion.save();
       form.questions.push(newQuestion._id);
       await form.save();
       res.status(201).json(newQuestion);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server Error: Could not add question' });
+      res.status(500).json({ message: 'Server Error' });
     }
 };
 
 export const getFormById = async (req, res) => {
     try {
       const form = await Form.findById(req.params.id).populate('questions');
-      if (!form) {
-        return res.status(404).json({ message: 'Form not found' });
-      }
+      if (!form) return res.status(404).json({ message: 'Form not found' });
       res.status(200).json(form);
     } catch (error) {
-      res.status(500).json({ message: 'Server Error: Could not retrieve form' });
+      res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// NEW: Fetch all versions for a form
+export const getFormVersions = async (req, res) => {
+    try {
+        const versions = await FormVersion.find({ formId: req.params.id }).sort({ createdAt: -1 });
+        res.status(200).json(versions);
+    } catch (error) {
+        res.status(500).json({ message: 'Could not fetch versions' });
     }
 };

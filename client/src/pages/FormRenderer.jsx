@@ -1,193 +1,118 @@
-// client/src/pages/FormRenderer.jsx
-import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronRight, ChevronLeft, Send, Loader2 } from 'lucide-react';
+import { GlassButton } from '../components/ui/GlassButton';
 
-// --- Renderers ---
-import ComprehensionRenderer from '../components/renderer/ComprehensionRenderer';
-import CategorizeRenderer from '../components/renderer/CategorizeRenderer';
-import ClozeRenderer from '../components/renderer/ClozeRenderer';
-import HeadingRenderer from '../components/renderer/HeadingRenderer';
-import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
-import BannerRenderer from '../components/renderer/BannerRenderer';
-import ShortAnswerRenderer from '../components/renderer/ShortAnswerRenderer';
-import LongAnswerRenderer from '../components/renderer/LongAnswerRenderer'; 
-import MultipleChoiceRenderer from '../components/renderer/MultipleChoiceRenderer';
-import EmailRenderer from '../components/renderer/EmailRenderer';
-import CheckboxRenderer from '../components/renderer/CheckboxRenderer';
-import DropdownRenderer from '../components/renderer/DropdownRenderer';
-import SwitchRenderer from '../components/renderer/SwitchRenderer';
-import PictureChoiceRenderer from '../components/renderer/PictureChoiceRenderer';
+export default function FormRenderer() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState(0); // 1 for next, -1 for prev
 
-import { themes as themesObject, themesArray } from '../themes';
-import Header from '../components/Header';
+  // Mock data for UI locking
+  const questions = [
+    { id: 1, type: 'mcq', question: "What is your primary goal for 2024?" },
+    { id: 2, type: 'categorize', question: "Sort these tech stacks by preference." },
+    { id: 3, type: 'cloze', question: "Formify is a _____ application built with _____." },
+  ];
 
-const gridOnly = "bg-[length:80px_80px] bg-[linear-gradient(transparent_78px,rgba(59,130,246,0.3)_80px),linear-gradient(90deg,transparent_78px,rgba(59,130,246,0.3)_80px)]";
-
-const ThemeSwitcher = ({ currentThemeName, onThemeChange }) => {
-  return (
-    <div className="fixed right-4 z-50">
-      <select
-        value={currentThemeName}
-        onChange={(e) => onThemeChange(e.target.value)}
-        className="bg-white border border-gray-300 rounded-md shadow-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="" disabled>Change Theme</option>
-        {themesArray.map(theme => (
-          <option key={theme.name} value={theme.name}>
-            {theme.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
-
-const FormRenderer = () => {
-  const { formId } = useParams();
-  const { user } = useUser(); 
-  const navigate = useNavigate();
-  const [form, setForm] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [answers, setAnswers] = useState({});
-
-  const [selectedThemeName, setSelectedThemeName] = useState('Light');
-
-  useEffect(() => {
-    const fetchForm = async () => {
-      try {
-        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/forms/${formId}`);
-        setForm(response.data);
-        setSelectedThemeName(response.data.theme || 'Light');
-      } catch (err) {
-        setError('Failed to fetch form. Please check the URL.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchForm();
-  }, [formId]);
-
-  const handleAnswerChange = useCallback((questionId, answer) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
-  }, []);
-
-  const handleSubmit = async () => {
-    if (!user) {
-      alert("You must be signed in to submit a response.");
-      return;
-    }
-    try {
-      setLoading(true); 
-      
-      // --- FIX: Robust Name Construction for Clerk ---
-      // 1. Try fullName directly
-      // 2. Try combining firstName + lastName
-      // 3. Try username
-      // 4. Fallback to "Anonymous"
-      let submitName = "Anonymous";
-      
-      if (user.fullName) {
-        submitName = user.fullName;
-      } else if (user.firstName) {
-        submitName = `${user.firstName} ${user.lastName || ''}`.trim();
-      } else if (user.username) {
-        submitName = user.username;
-      }
-
-      console.log("Submitting as:", submitName); // Debug log
-
-      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/responses`, {
-        formId,
-        answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
-        userId: user.id,
-        userEmail: user.primaryEmailAddress.emailAddress,
-        username: submitName, // Send the constructed name
-      });
-      
-      const { responseId } = response.data;
-      if (responseId) {
-        navigate(`/results/${responseId}`);
-      } else {
-        alert('Form submitted, but could not redirect to results.');
-      }
-
-    } catch (err) {
-      console.error(err);
-      alert('Error submitting form. Please try again.');
-    } finally {
-        setLoading(false);
-    }
+  const paginate = (newDirection) => {
+    setDirection(newDirection);
+    setCurrentStep((prev) => prev + newDirection);
   };
 
-  const theme = themesObject[selectedThemeName] || themesObject['Light'];
-  const darkThemes = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'];
-  const currentThemeMode = darkThemes.includes(selectedThemeName) ? 'dark' : 'light';
-
-  if (loading && !form) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-800 text-xl">Loading Form...</div>;
-  if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-red-500 text-xl">{error}</div>;
-  if (!form) return null;
-
-  const questionsToAnswer = form.questions.filter(q => 
-    q.type !== 'Heading' && q.type !== 'Paragraph' && q.type !== 'Banner'
-  );
+  const variants = {
+    enter: (direction) => ({
+      x: direction > 0 ? 1000 : -1000,
+      opacity: 0,
+      scale: 0.8,
+      rotateY: direction > 0 ? 45 : -45,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+      rotateY: 0,
+      transition: { duration: 0.6, type: "spring", bounce: 0.3 }
+    },
+    exit: (direction) => ({
+      x: direction < 0 ? 1000 : -1000,
+      opacity: 0,
+      scale: 0.8,
+      rotateY: direction < 0 ? 45 : -45,
+      transition: { duration: 0.4 }
+    })
+  };
 
   return (
-    <div className={`min-h-screen px-4 pb-16 transition-colors duration-300 ${theme.background} ${gridOnly}`}>
-      
-      <Header themeMode={currentThemeMode} />
-
-      <ThemeSwitcher 
-        currentThemeName={selectedThemeName}
-        onThemeChange={setSelectedThemeName}
-      />
-      
-      <div className="max-w-4xl mx-auto">
-        <div className={`p-8 rounded-lg shadow-md mb-10 text-center ${theme.cardBg}`}>
-          {form.headerImage && (
-            <img 
-              src={form.headerImage} 
-              alt="Form Header" 
-              className="w-full h-56 object-cover rounded-md mb-8" 
-            />
-          )}
-          <h1 className={`text-4xl font-bold ${theme.text}`}>{form.title}</h1>
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-6">
+      {/* Progress Indicator */}
+      <div className="fixed top-12 w-full max-w-md px-6 z-50">
+        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full bg-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.5)]"
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentStep + 1) / questions.length) * 100}%` }}
+          />
         </div>
-        
-        <div className="space-y-8">
-            {form.questions.map(question => {
-                switch (question.type) {
-                case 'Heading': return <HeadingRenderer key={question._id} text={question.text} theme={theme} />;
-                case 'Paragraph': return <ParagraphRenderer key={question._id} text={question.text} theme={theme} />;
-                case 'Banner': return <BannerRenderer key={question._id} imageSrc={question.image} theme={theme} />;
-                case 'ShortAnswer': return <ShortAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'LongAnswer': return <LongAnswerRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Email': return <EmailRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'MultipleChoice': return <MultipleChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Checkbox': return <CheckboxRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Dropdown': return <DropdownRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Switch': return <SwitchRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'PictureChoice': return <PictureChoiceRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Comprehension': return <ComprehensionRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Categorize': return <CategorizeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                case 'Cloze': return <ClozeRenderer key={question._id} question={question} onAnswerChange={handleAnswerChange} theme={theme} />;
-                default: return null;
-                }
-            })}
+        <div className="flex justify-between mt-2 text-[10px] font-mono uppercase tracking-widest text-white/30">
+          <span>Question {currentStep + 1}</span>
+          <span>{questions.length} Total</span>
         </div>
+      </div>
 
-        {questionsToAnswer.length > 0 && (
-          <div className="mt-12 text-center">
-            <button onClick={handleSubmit} className={theme.button} disabled={loading}>
-              {loading ? 'Submitting...' : 'Submit Form'}
-            </button>
-          </div>
+      {/* Animation Container */}
+      <div className="relative w-full max-w-3xl h-[500px] flex items-center justify-center">
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="absolute w-full glass-card p-12 border-white/10 shadow-2xl backdrop-blur-2xl"
+          >
+            <div className="space-y-8">
+              <span className="text-indigo-400 font-mono text-sm uppercase tracking-widest">
+                {questions[currentStep].type}
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold leading-tight">
+                {questions[currentStep].question}
+              </h2>
+              
+              <div className="min-h-[150px] py-4">
+                {/* Individual Question Renderers (MCQ, Categorize, etc) will go here */}
+                <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-white/40 italic">
+                  Interactive content placeholder...
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="fixed bottom-12 flex items-center gap-6 z-50">
+        <button 
+          onClick={() => paginate(-1)}
+          disabled={currentStep === 0}
+          className="p-4 rounded-full glass-card border-white/5 text-white/40 hover:text-white disabled:opacity-0 transition-all"
+        >
+          <ChevronLeft size={24} />
+        </button>
+
+        {currentStep === questions.length - 1 ? (
+          <GlassButton className="bg-green-500/20 text-green-400 border-green-500/50 px-8 py-4 flex items-center gap-2">
+            Submit Assessment <Send size={18} />
+          </GlassButton>
+        ) : (
+          <GlassButton 
+            onClick={() => paginate(1)}
+            className="bg-white/10 text-white px-8 py-4 flex items-center gap-2"
+          >
+            Continue <ChevronRight size={18} />
+          </GlassButton>
         )}
       </div>
     </div>
   );
-};
-
-export default FormRenderer;
+}
