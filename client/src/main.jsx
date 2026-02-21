@@ -15,12 +15,11 @@ import SignUpPage from './pages/SignUpPage';
 import ProtectedLayout from './pages/ProtectedLayout';
 import PublicLayout from './pages/PublicLayout';
 import FormEditorUI from './components/FormCreator/FormEditorUI';
+import MyFormsPage from './pages/MyFormsPage'; 
+import AnalyticsPage from './pages/AnalyticsPage';
+import SubmissionsPage from './pages/SubmissionsPage'; // NEW IMPORT
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
-if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key");
-}
 
 const router = createBrowserRouter([
   {
@@ -49,6 +48,9 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: "/dashboard", element: <DashboardPage /> },
+          { path: "/my-forms", element: <MyFormsPage /> },
+          { path: "/analytics", element: <AnalyticsPage /> },
+          { path: "/submissions", element: <SubmissionsPage /> }, // NEW ROUTE
           { path: "/editor/new", element: <FormEditorUI /> },
           { path: "/editor/:formId", element: <FormEditorUI /> },
         ]

@@ -18,6 +18,12 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
 
+// Request Logger (Helpful for debugging 404s)
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
@@ -37,6 +43,12 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 
+// NEW: Root route so localhost:5000 shows something
+app.get('/', (req, res) => {
+  res.status(200).json({ message: "Neural Engine Online", status: "Active" });
+});
+
+// Mounting Routes
 app.use('/api/forms', formRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/imagekit', imageKitRoutes);

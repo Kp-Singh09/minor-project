@@ -2,14 +2,13 @@
 import { Outlet } from 'react-router-dom';
 import VerticalSidebar from '../components/VerticalSidebar';
 import HorizontalNavbar from '../components/HorizontalNavbar';
-import Scene from '../components/canvas/Stars'; // Re-importing the 3D Scene
 
 export default function ProtectedLayout() {
   return (
-    <div className="flex min-h-screen bg-black w-full overflow-x-hidden relative">
-      {/* 3D Background Background */}
-      <Scene /> 
-
+    <div className="flex min-h-screen w-full relative">
+      {/* Removed <Scene /> from here because it is now in App.jsx.
+         The stars will now show through from the background layer.
+      */}
       <aside className="w-24 shrink-0 relative z-[110]">
         <VerticalSidebar />
       </aside>

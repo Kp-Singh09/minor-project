@@ -9,13 +9,15 @@ import {
     deleteForm,
     updateQuestion,
     deleteQuestionFromForm,
-    getFormVersions,   // NEW
-    rollbackToVersion  // NEW
+    getFormVersions,
+    rollbackToVersion
 } from '../controllers/formController.js';
 
 const router = express.Router();
 
+// Full path: /api/forms/user/:userId
 router.get('/user/:userId', getFormsByUser);
+
 router.post('/', createForm);
 router.get('/:id', getFormById);
 router.put('/:id', updateForm);

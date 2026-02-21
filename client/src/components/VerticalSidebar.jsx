@@ -1,14 +1,14 @@
 // client/src/components/VerticalSidebar.jsx
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, PlusCircle, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, PlusCircle, LogOut, Inbox } from 'lucide-react';
 import { SignOutButton } from '@clerk/clerk-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  // Changed path to /dashboard temporarily to avoid 404 until we build these pages
-  { name: 'My Forms', path: '/dashboard', icon: FileText }, 
-  { name: 'Analytics', path: '/dashboard', icon: BarChart3 },
+  { name: 'My Forms', path: '/my-forms', icon: FileText }, 
+  { name: 'Submissions', path: '/submissions', icon: Inbox }, // Updated to point to /submissions
+  { name: 'Analytics', path: '/analytics', icon: BarChart3 },
 ];
 
 export default function VerticalSidebar() {
@@ -20,7 +20,7 @@ export default function VerticalSidebar() {
       <motion.div 
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="glass-card p-3 flex flex-col gap-2 border-white/10 bg-black/40 backdrop-blur-xl"
+        className="glass-card p-3 flex flex-col gap-2 border-white/10 bg-black/40 backdrop-blur-xl rounded-2xl"
       >
         <button 
           onClick={() => navigate('/editor/new')}

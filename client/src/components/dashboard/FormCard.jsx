@@ -1,59 +1,73 @@
-import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { MoreVertical, Users, Activity, ExternalLink } from 'lucide-react';
+// client/src/components/dashboard/FormCard.jsx
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Users, Calendar, ArrowUpRight, Zap, Trash2 } from 'lucide-react';
 
-export default function FormCard({ form }) {
-  // 3D Tilt Effect Logic
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-100, 100], [10, -10]);
-  const rotateY = useTransform(x, [-100, 100], [-10, 10]);
+export default function FormCard({ form, onDelete }) {
+  const navigate = useNavigate();
 
-  function handleMouse(event) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    x.set(event.clientX - rect.left - rect.width / 2);
-    y.set(event.clientY - rect.top - rect.height / 2);
-  }
+  // Determine a color based on the form title length or ID for visual variety
+  const accentColor = form._id.charCodeAt(form._id.length - 1) % 2 === 0 ? 'text-indigo-400' : 'text-purple-400';
+  const glowColor = form._id.charCodeAt(form._id.length - 1) % 2 === 0 ? 'bg-indigo-500/20' : 'bg-purple-500/20';
 
   return (
     <motion.div
-      style={{ rotateX, rotateY, perspective: 1000 }}
-      onMouseMove={handleMouse}
-      onMouseLeave={() => { x.set(0); y.set(0); }}
-      whileHover={{ y: -5 }}
-      className="glass-card p-6 group cursor-pointer border-white/5 hover:border-indigo-500/30 transition-colors relative overflow-hidden"
+      whileHover={{ y: -8, scale: 1.02 }}
+      className="group relative glass-card p-8 border-white/5 bg-white/[0.02] overflow-hidden rounded-[32px] cursor-pointer"
+      onClick={() => navigate(`/editor/${form._id}`)}
     >
-      {/* Background Glow */}
-      <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl group-hover:bg-indigo-600/20 transition-colors" />
+      {/* Background Ambient Glow */}
+      <div className={`absolute -right-10 -top-10 w-32 h-32 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${glowColor}`} />
 
-      <div className="flex justify-between items-start mb-8">
-        <div className="p-3 rounded-lg bg-white/5 border border-white/10 group-hover:border-indigo-500/50 transition-colors">
-          <Activity className="text-indigo-400" size={20} />
+      <div className="relative z-10">
+        <div className="flex justify-between items-start mb-6">
+          <div className={`p-4 rounded-2xl bg-white/5 ${accentColor} border border-white/5`}>
+            <Zap size={24} />
+          </div>
+          <div className="flex gap-2">
+             <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/submissions?formId=${form._id}`);
+              }}
+              className="p-2 rounded-lg hover:bg-white/10 text-white/20 hover:text-white transition-all"
+            >
+              <Users size={18} />
+            </button>
+            <button 
+              className="p-2 rounded-lg hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(form._id);
+              }}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
         </div>
-        <button className="text-white/20 hover:text-white transition-colors">
-          <MoreVertical size={20} />
-        </button>
-      </div>
 
-      <h3 className="text-xl font-bold text-white/90 mb-2 group-hover:text-white transition-colors">
-        {form.title || "Untitled Form"}
-      </h3>
-      
-      <div className="flex items-center gap-4 text-sm text-white/40">
-        <div className="flex items-center gap-1.5">
-          <Users size={14} />
-          <span>{form.responseCount || 0} responses</span>
+        <h3 className="text-2xl font-bold text-white mb-2 truncate group-hover:text-indigo-300 transition-colors">
+          {form.title}
+        </h3>
+        
+        <div className="flex items-center gap-4 text-white/30 font-mono text-[10px] uppercase tracking-widest mb-8">
+          <span className="flex items-center gap-1.5">
+            <Calendar size={12} />
+            {new Date(form.createdAt).toLocaleDateString()}
+          </span>
+          <span className="w-1 h-1 rounded-full bg-white/10" />
+          <span className="flex items-center gap-1.5">
+            <FileText size={12} />
+            {form.questions?.length || 0} Modules
+          </span>
         </div>
-        <div className="w-1 h-1 rounded-full bg-white/10" />
-        <span>Modified 2d ago</span>
-      </div>
 
-      <div className="mt-8 flex gap-2">
-        <button className="flex-1 py-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-semibold border border-indigo-500/20 transition-all">
-          View Analytics
-        </button>
-        <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 transition-all">
-          <ExternalLink size={16} />
-        </button>
+        <div className="pt-6 border-t border-white/5 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover:text-white/40 transition-colors">
+            Access Terminal
+          </span>
+          <ArrowUpRight className="text-white/10 group-hover:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" size={20} />
+        </div>
       </div>
     </motion.div>
   );

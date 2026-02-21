@@ -1,85 +1,100 @@
 // client/src/components/FormCreator/EditorSidebar.jsx
 import { motion } from 'framer-motion';
 import { 
+  Sparkles, 
   Type, 
-  Hash, 
   CheckSquare, 
-  AlignLeft, 
-  Layout, 
+  Layers, 
   Columns, 
-  Layers,
-  History,
-  Plus
+  History, 
+  Plus, 
+  MessageSquare, 
+  Layout, 
+  Hash, 
+  Mail, 
+  CheckCircle2, 
+  ChevronDown, 
+  ToggleRight, 
+  Image 
 } from 'lucide-react';
 
-const questionTypes = [
-  { id: 'header', label: 'Section Header', icon: Layout, color: 'text-blue-400' },
-  { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare, color: 'text-green-400' },
-  { id: 'categorize', label: 'Categorize', icon: Layers, color: 'text-purple-400' },
-  { id: 'cloze', label: 'Fill Blanks', icon: Columns, color: 'text-orange-400' },
-  { id: 'comprehension', label: 'Comprehension', icon: AlignLeft, color: 'text-pink-400' },
-];
+// Added onOpenAiModal to the props
+export default function EditorSidebar({ onAddQuestion, activeTab, setActiveTab, onOpenAiModal }) {
+  const questionTypes = [
+    { id: 'MultipleChoice', label: 'Multiple Choice', icon: CheckCircle2 },
+    { id: 'ShortAnswer', label: 'Short Answer', icon: Type },
+    { id: 'LongAnswer', label: 'Long Answer', icon: MessageSquare },
+    { id: 'Categorize', label: 'Categorize', icon: Columns },
+    { id: 'Comprehension', label: 'Comprehension', icon: Layout },
+    { id: 'Cloze', label: 'Cloze Test', icon: Hash },
+    { id: 'Email', label: 'Email Address', icon: Mail },
+    { id: 'Dropdown', label: 'Dropdown Menu', icon: ChevronDown },
+    { id: 'Switch', label: 'Switch / Toggle', icon: ToggleRight },
+    { id: 'PictureChoice', label: 'Picture Choice', icon: Image },
+  ];
 
-export default function EditorSidebar({ onAddQuestion, activeTab, setActiveTab }) {
   return (
     <motion.div 
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      className="w-72 h-[calc(100vh-120px)] sticky top-24 flex flex-col gap-6"
+      className="w-80 h-[calc(100vh-160px)] sticky top-24 flex flex-col gap-6"
     >
-      <div className="glass-card p-6 border-white/10 h-full flex flex-col">
-        {/* Tab Selection */}
-        <div className="flex bg-white/5 rounded-lg p-1 mb-6">
+      <div className="glass-card p-6 border-white/10 h-full flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl">
+        
+        {/* NEW: AI Generation Button */}
+        {activeTab === 'elements' && (
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onOpenAiModal} // Triggers the modal in FormEditorUI
+            className="w-full mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-indigo-500/30 transition-all border border-white/10"
+          >
+            <Sparkles size={16} className="animate-pulse" /> 
+            Generate with AI
+          </motion.button>
+        )}
+
+        {/* Tab Selection Logic */}
+        <div className="flex bg-white/5 rounded-xl p-1 mb-8 border border-white/5">
           <button 
             onClick={() => setActiveTab('elements')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs font-mono transition-all ${activeTab === 'elements' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'elements' ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white'}`}
           >
             <Plus size={14} /> Elements
           </button>
           <button 
             onClick={() => setActiveTab('history')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs font-mono transition-all ${activeTab === 'history' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'history' ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white'}`}
           >
             <History size={14} /> History
           </button>
         </div>
 
-        {activeTab === 'elements' ? (
-          <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
-            <h3 className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Structure</h3>
-            {questionTypes.map((type) => (
-              <motion.button
-                key={type.id}
-                whileHover={{ x: 5, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onAddQuestion(type.id)}
-                className="flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] text-left transition-colors group"
-              >
-                <div className={`p-2 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors ${type.color}`}>
-                  <type.icon size={18} />
-                </div>
-                <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
-                  {type.label}
-                </span>
-              </motion.button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-white/20">
-            <History size={32} className="mb-4 opacity-50" />
-            <p className="text-xs font-mono uppercase tracking-widest">Select a version from the main timeline to rollback</p>
-          </div>
-        )}
-
-        <div className="mt-auto pt-6 border-t border-white/10">
-          <div className="glass-card p-4 bg-indigo-500/10 border-indigo-500/20">
-            <p className="text-[10px] font-mono text-indigo-400 uppercase mb-2">Editor Pro Tip</p>
-            <p className="text-xs text-white/50 leading-relaxed">
-              {activeTab === 'elements' 
-                ? "Drag and drop elements directly onto the canvas to reorder them."
-                : "Versions are automatically created every time you save changes."}
-            </p>
-          </div>
+        {/* Question Types List */}
+        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          {activeTab === 'elements' ? (
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-black mb-4">Core Modules</p>
+              {questionTypes.map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => onAddQuestion(type.id)}
+                  className="w-full flex items-center gap-4 p-3.5 rounded-xl bg-white/[0.03] border border-white/5 text-white/60 hover:text-white hover:bg-white/[0.08] hover:border-white/10 transition-all group"
+                >
+                  <div className="p-2 rounded-lg bg-white/5 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
+                    <type.icon size={18} />
+                  </div>
+                  <span className="text-sm font-medium tracking-tight">{type.label}</span>
+                  <Plus size={14} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <History size={32} className="mx-auto text-white/10 mb-4" />
+              <p className="text-xs text-white/30 font-mono italic">Accessing previous states...</p>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

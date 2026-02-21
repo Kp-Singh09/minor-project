@@ -1,10 +1,10 @@
 // client/src/pages/DashboardPage.jsx
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/clerk-react';
-import { Plus, Loader2, AlertCircle, Layout, Activity } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, Layout, Activity, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig';
+import api from '../api/axiosConfig'; 
 import FormCard from '../components/dashboard/FormCard';
 
 export default function DashboardPage() {
@@ -13,12 +13,15 @@ export default function DashboardPage() {
   const [forms, setForms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State for the Neural Live Search
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchUserForms = async () => {
       if (!user) return;
       try {
-        // Fetch real data from the backend
+        // Fetching data using the established repository link
         const response = await api.get(`/forms/user/${user.id}`);
         setForms(response.data);
         setError(null);
@@ -32,6 +35,13 @@ export default function DashboardPage() {
 
     fetchUserForms();
   }, [user]);
+
+  // Logic to filter modules in real-time based on the search query
+  const filteredForms = useMemo(() => {
+    return forms.filter(form => 
+      form.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [forms, searchQuery]);
 
   if (isLoading) {
     return (
@@ -50,8 +60,8 @@ export default function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto pb-24 relative z-50">
       {/* Dashboard Header */}
-      <header className="flex justify-between items-end mb-16">
-        <div>
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
+        <div className="flex-1 w-full">
           <motion.h2 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -59,9 +69,26 @@ export default function DashboardPage() {
           >
             Welcome, <span className="text-indigo-500">{user?.firstName || 'Agent'}</span>
           </motion.h2>
-          <div className="flex items-center gap-3 text-white/40 font-medium">
-            <Activity size={16} className="text-indigo-400" />
-            <span>Repository status: {forms.length} active modules identified.</span>
+          
+          <div className="flex flex-col md:flex-row md:items-center gap-6 mt-6">
+            <div className="flex items-center gap-3 text-white/40 font-medium whitespace-nowrap">
+              <Activity size={16} className="text-indigo-400" />
+              <span>Repository status: {forms.length} active modules.</span>
+            </div>
+
+            {/* Neural Search Input Field */}
+            <div className="relative w-full max-w-md group">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <Search size={16} className="text-white/20 group-focus-within:text-indigo-400 transition-colors" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Search neural modules..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.08] transition-all font-mono"
+              />
+            </div>
           </div>
         </div>
 
@@ -69,7 +96,7 @@ export default function DashboardPage() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/editor/new')}
-          className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-tighter hover:bg-indigo-50 transition-all shadow-2xl shadow-white/10 z-[100] relative"
+          className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-tighter hover:bg-indigo-50 transition-all shadow-2xl shadow-white/10 z-[100] relative whitespace-nowrap"
         >
           <Plus size={20} strokeWidth={3} />
           Create New Form
@@ -88,38 +115,59 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Main Content: Grid or Empty State */}
-      {forms.length === 0 ? (
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-24 rounded-[40px] border border-white/5 flex flex-col items-center text-center bg-white/[0.02] backdrop-blur-3xl shadow-2xl"
-        >
-          <div className="w-24 h-24 bg-indigo-500/10 rounded-[32px] flex items-center justify-center mb-10 border border-indigo-500/20 shadow-inner">
-            <Layout className="text-indigo-400" size={40} />
-          </div>
-          <h3 className="text-3xl font-bold mb-4 text-white tracking-tight">Zero Modules Deployed</h3>
-          <p className="text-white/40 max-w-sm mb-12 text-lg leading-relaxed">
-            Your neural repository is currently offline. Initialize a new assessment module to begin data collection.
-          </p>
-          <button 
-            onClick={() => navigate('/editor/new')}
-            className="px-10 py-4 rounded-xl border border-white/10 hover:bg-white/5 text-white transition-all font-mono text-xs uppercase tracking-widest hover:border-indigo-500/50"
+      {/* Main Content Grid with Animation Presence */}
+      <AnimatePresence mode='popLayout'>
+        {filteredForms.length === 0 ? (
+          <motion.div 
+            key="empty-state"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="p-24 rounded-[40px] border border-white/5 flex flex-col items-center text-center bg-white/[0.02] backdrop-blur-3xl shadow-2xl"
           >
-            + Initialize First Module
-          </button>
-        </motion.div>
-      ) : (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
-        >
-          {forms.map((form) => (
-            <FormCard key={form._id} form={form} />
-          ))}
-        </motion.div>
-      )}
+            <div className="w-24 h-24 bg-indigo-500/10 rounded-[32px] flex items-center justify-center mb-10 border border-indigo-500/20 shadow-inner">
+              <Layout className="text-indigo-400" size={40} />
+            </div>
+            <h3 className="text-3xl font-bold mb-4 text-white tracking-tight">
+              {searchQuery ? "No matching modules" : "Zero Modules Deployed"}
+            </h3>
+            <p className="text-white/40 max-w-sm mb-12 text-lg leading-relaxed">
+              {searchQuery 
+                ? `The query "${searchQuery}" did not return any results from the repository.`
+                : "Your neural repository is currently offline. Initialize a new assessment module to begin data collection."
+              }
+            </p>
+            {!searchQuery && (
+              <button 
+                onClick={() => navigate('/editor/new')}
+                className="px-10 py-4 rounded-xl border border-white/10 hover:bg-white/5 text-white transition-all font-mono text-xs uppercase tracking-widest hover:border-indigo-500/50"
+              >
+                + Initialize First Module
+              </button>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="grid-state"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+          >
+            {filteredForms.map((form) => (
+              <motion.div 
+                layout 
+                key={form._id} 
+                initial={{ opacity: 0, scale: 0.9 }} 
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.2 }}
+              >
+                <FormCard form={form} />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

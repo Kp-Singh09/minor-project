@@ -61,68 +61,70 @@ const getSystemPrompt = () => {
 };
 
 export const generateFormWithAI = async (req, res) => {
-    const { prompt, userId, username } = req.body;
-    if (!prompt || !userId) {
-        return res.status(400).json({ message: 'Prompt and User ID are required.' });
-    }
-    try {
-        const groq = new Groq({
-            apiKey: process.env.GROQ_API_KEY
-        });
+  // We receive userId from the frontend
+  const { prompt, userId, username } = req.body; 
+  
+  if (!prompt || !userId) {
+      return res.status(400).json({ message: 'Prompt and User ID are required.' });
+  }
+  
+  try {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const chatCompletion = await groq.chat.completions.create({
+          messages: [
+              { role: "system", content: getSystemPrompt() },
+              { role: "user", content: `User prompt: "${prompt}"` }
+          ],
+          model: "llama-3.1-8b-instant",
+          response_format: { type: "json_object" }
+      });
 
-        const fullPrompt = getSystemPrompt();
-        
-        const chatCompletion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: "system",
-                    content: fullPrompt
-                },
-                {
-                    role: "user",
-                    content: `User prompt: "${prompt}"`
-                }
-            ],
-            model: "llama-3.1-8b-instant",
-            response_format: { type: "json_object" }
-        });
+      const aiResponse = JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
 
-        const text = chatCompletion.choices[0]?.message?.content || "";
-        const aiResponse = JSON.parse(text);
-        const newForm = new Form({
-            title: aiResponse.title,
-            userId: userId,
-            username: username || 'AI User',
-            theme: 'Light', 
-            questions: [],
-        });
+      // 1. Create the Form
+      const newForm = new Form({
+          title: aiResponse.title || 'AI Generated Assessment',
+          // FIXED: Changed userId to creatorId to match Form.js schema
+          creatorId: userId, 
+          username: username || 'AI User',
+          theme: 'Light',
+          questions: []
+      });
+      
+      const savedForm = await newForm.save();
 
-        const questionIds = [];
-        for (const qData of aiResponse.questions) {
-            const questionPayload = {
-                type: qData.type,
-                text: qData.text,
-                options: qData.options,
-                correctAnswer: qData.correctAnswer,
-                categories: qData.categories,
-                items: qData.items,
-                comprehensionPassage: qData.comprehensionPassage,
-                mcqs: qData.mcqs,
-            };
-            
-            const newQuestion = new Question(questionPayload);
-            await newQuestion.save();
-            questionIds.push(newQuestion._id);
-        }
+      const questionIds = [];
 
-        newForm.questions = questionIds;
-        await newForm.save();
-        res.status(201).json({ formId: newForm._id });
+      // 2. Map AI response to Question Schema
+      for (const qData of aiResponse.questions) {
+          const newQuestion = new Question({
+              formId: savedForm._id, 
+              type: qData.type,
+              content: {
+                  question: qData.text || qData.questionText || "",
+                  options: qData.options || [],
+                  correctAnswer: qData.correctAnswer || "",
+                  categories: qData.categories || [],
+                  items: qData.items || [],
+                  comprehensionPassage: qData.comprehensionPassage || "",
+                  mcqs: qData.mcqs || []
+              }
+          });
+          
+          const savedQuestion = await newQuestion.save();
+          questionIds.push(savedQuestion._id);
+      }
 
-    } catch (error) {
-        console.error("AI generation or database creation failed:", error);
-        res.status(500).json({ message: 'Failed to generate AI form.', error: error.message });
-    }
+      // 3. Update Form with Question IDs
+      savedForm.questions = questionIds;
+      await savedForm.save();
+
+      res.status(201).json({ formId: savedForm._id });
+
+  } catch (error) {
+      console.error("AI generation or database creation failed:", error);
+      res.status(500).json({ message: 'Failed to generate AI form.', error: error.message });
+  }
 };
 
 export const generateQuestionFromImage = async (req, res) => {
