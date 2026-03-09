@@ -5,57 +5,72 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import { createServer } from 'http'; // Import createServer
+import { initSocket } from './socket.js'; // Import socket initializer
 
+// Route Imports
 import formRoutes from './routes/formRoutes.js'; 
 import responseRoutes from './routes/responseRoutes.js';
 import imageKitRoutes from './routes/imageKitRoutes.js'; 
 import statsRoutes from './routes/statsRoutes.js';
 import aiRoutes from './routes/aiRoutes.js'; 
 
+// Environment Configuration
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
+const httpServer = createServer(app); // Create HTTP server wrapping Express
 
-// Request Logger (Helpful for debugging 404s)
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-
+// CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'http://localhost:5173',
-  'https://formify-kp.vercel.app'
+  'https://formify-kp.vercel.app',
+  'https://formify-kp.vercel.app/'
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
-}));
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// NEW: Root route so localhost:5000 shows something
+// Initialize Socket.io
+initSocket(httpServer);
+
+// Test Route
 app.get('/', (req, res) => {
-  res.status(200).json({ message: "Neural Engine Online", status: "Active" });
+  res.send('Form Builder API is running!');
 });
 
-// Mounting Routes
+// API Routes
 app.use('/api/forms', formRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/imagekit', imageKitRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/ai', aiRoutes);
 
+// Database Connection and Server Start
 const PORT = process.env.PORT || 5000;
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => app.listen(PORT, () => console.log(`Neural Engine Online on Port: ${PORT}`)))
-  .catch((error) => console.error(`Neural Link Failed: ${error}`));
+  .then(() => {
+    // Listen using the httpServer, not app
+    httpServer.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
+  })
+  .catch((error) => console.error(`${error} did not connect`));
