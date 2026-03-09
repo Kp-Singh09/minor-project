@@ -14,7 +14,7 @@ import responseRoutes from './routes/responseRoutes.js';
 import imageKitRoutes from './routes/imageKitRoutes.js'; 
 import statsRoutes from './routes/statsRoutes.js';
 import aiRoutes from './routes/aiRoutes.js'; 
-
+import reportRoutes from './routes/reportRoutes.js';
 // Environment Configuration
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,7 +64,7 @@ app.use('/api/responses', responseRoutes);
 app.use('/api/imagekit', imageKitRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/ai', aiRoutes);
-
+app.use('/api/reports', reportRoutes);
 // Database Connection and Server Start
 const PORT = process.env.PORT || 5000;
 

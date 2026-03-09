@@ -1,200 +1,145 @@
 // server/controllers/formController.js
 import Form from '../models/Form.js';
-import Question from '../models/Question.js';
-import Response from '../models/Response.js';
-import FormVersion from '../models/FormVersion.js'; // NEW
+import FormVersion from '../models/FormVersion.js';
 
-export const updateQuestion = async (req, res) => {
-    try {
-        const { questionId } = req.params;
-        const questionData = req.body;
-        const updatedQuestion = await Question.findByIdAndUpdate(questionId, questionData, { new: true });
-        if (!updatedQuestion) return res.status(404).json({ message: 'Question not found' });
-        res.status(200).json(updatedQuestion);
-    } catch (error) {
-        res.status(500).json({ message: 'Server Error', error });
-    }
-};
-
-export const deleteQuestionFromForm = async (req, res) => {
-    try {
-        const { formId, questionId } = req.params;
-        await Form.findByIdAndUpdate(formId, { $pull: { questions: questionId } });
-        await Question.findByIdAndDelete(questionId);
-        res.status(200).json({ message: 'Question deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server Error', error });
-    }
-};
-
-export const deleteForm = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const form = await Form.findById(id);
-        if (!form) return res.status(404).json({ message: 'Form not found' });
-        if (form.questions && form.questions.length > 0) {
-            await Question.deleteMany({ _id: { $in: form.questions } });
-        }
-        await Response.deleteMany({ formId: id });
-        await FormVersion.deleteMany({ formId: id }); // NEW: Clean up versions
-        await Form.findByIdAndDelete(id);
-        res.status(200).json({ message: 'Form deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server Error', error });
-    }
-};
-
-export const getFormsByUser = async (req, res) => {
-  try {
-    const forms = await Form.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-    res.status(200).json(forms);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
-  }
-};
-
-export const updateForm = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const { title, headerImage, theme, questions, settings } = req.body;
-      const form = await Form.findById(id).populate('questions');
-      if (!form) return res.status(404).json({ message: 'Form not found' });
-
-      // Versioning Snapshot logic
-      const versionSnapshot = new FormVersion({
-          formId: id,
-          versionNumber: (form.version || 1),
-          snapshot: {
-              title: form.title,
-              questions: form.questions,
-              settings: form.settings
-          }
-      });
-      await versionSnapshot.save();
-
-      if (title) form.title = title;
-      if (headerImage !== undefined) form.headerImage = headerImage;
-      if (theme) form.theme = theme;
-      if (questions) form.questions = questions;
-      
-      // NEW: Granular Settings Update for RBAC & TTL
-      if (settings) {
-          form.settings = {
-              ...form.settings,
-              ...settings
-          };
-      }
-      
-      form.version = (form.version || 1) + 1;
-      await form.save();
-      
-      const updatedForm = await Form.findById(id).populate('questions');
-      res.status(200).json(updatedForm);
-  } catch (error) {
-      res.status(500).json({ message: 'Server Error', error });
-  }
-};
-
-// NEW: RBAC Middleware logic placeholder (can be expanded in middleware/auth.js)
-export const verifyAccess = async (req, res, next) => {
-  try {
-      const form = await Form.findById(req.params.id);
-      if (!form) return res.status(404).json({ message: 'Form not found' });
-
-      // Check for TTL Expiration
-      if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
-          return res.status(403).json({ message: 'This form link has expired.' });
-      }
-
-      // Logic for checking User Roles would go here (integrating with Clerk userId)
-      next();
-  } catch (error) {
-      res.status(500).json({ message: 'Access check failed' });
-  }
-};
-
-// NEW: Rollback Logic
-export const rollbackToVersion = async (req, res) => {
-    try {
-        const { versionId } = req.params;
-        const version = await FormVersion.findById(versionId);
-        if (!version) return res.status(404).json({ message: 'Version not found' });
-
-        const form = await Form.findById(version.formId);
-        
-        // Restore from snapshot
-        form.title = version.snapshot.title;
-        form.settings = version.snapshot.settings;
-        // Logic for question restoration would follow here
-        
-        await form.save();
-        res.status(200).json({ message: 'Rollback successful', form });
-    } catch (error) {
-        res.status(500).json({ message: 'Rollback failed', error });
-    }
-};
-  
+// --- CREATE FORM ---
 export const createForm = async (req, res) => {
   try {
-    const { title, userId, username, theme, questions: templateQuestions } = req.body; 
-    if (!userId) return res.status(400).json({ message: 'User ID required' });
-
+    const { title, creatorId, questions, settings } = req.body;
+    
+    // Initial save (Version 1)
     const newForm = new Form({
-      title: title || 'My New Form',
-      userId: userId,
-      username: username || 'Anonymous',
-      theme: theme || 'Light',
-      questions: [],
-      version: 1 // Initialize version
+      title,
+      creatorId,
+      questions, // Assuming these are ObjectIds if you pre-created them, or objects to be handled
+      settings,
+      version: 1
     });
 
-    if (templateQuestions && Array.isArray(templateQuestions)) {
-      const questionIds = [];
-      for (const qData of templateQuestions) {
-        const newQuestion = new Question({ ...qData, formId: newForm._id });
-        await newQuestion.save();
-        questionIds.push(newQuestion._id);
-      }
-      newForm.questions = questionIds;
-    }
-
     const savedForm = await newForm.save();
-    res.status(201).json(await Form.findById(savedForm._id).populate('questions'));
+
+    // Create Initial Version Snapshot
+    await FormVersion.create({
+      formId: savedForm._id,
+      versionNumber: 1,
+      snapshot: {
+        title: savedForm.title,
+        questions: savedForm.questions, // This might need full population in a real app
+        settings: savedForm.settings
+      },
+      changeLog: 'Initial Creation'
+    });
+
+    res.status(201).json(savedForm);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ message: 'Error creating form', error });
   }
 };
 
-export const addQuestionToForm = async (req, res) => {
-    try {
-      const form = await Form.findById(req.params.id);
-      if (!form) return res.status(404).json({ message: 'Form not found' });
-      const newQuestion = new Question({ ...req.body, formId: form._id });
-      await newQuestion.save();
-      form.questions.push(newQuestion._id);
-      await form.save();
-      res.status(201).json(newQuestion);
-    } catch (error) {
-      res.status(500).json({ message: 'Server Error' });
-    }
-};
-
+// --- GET FORM BY ID (SECURE) ---
 export const getFormById = async (req, res) => {
-    try {
-      const form = await Form.findById(req.params.id).populate('questions');
-      if (!form) return res.status(404).json({ message: 'Form not found' });
-      res.status(200).json(form);
-    } catch (error) {
-      res.status(500).json({ message: 'Server Error' });
+  try {
+    const { id } = req.params;
+    const { password } = req.body; // Check if password is sent in body (for unlocking)
+
+    // 1. Fetch Form (Select password explicitly to check it)
+    const form = await Form.findById(id)
+      .select('+settings.password') 
+      .populate('questions');
+
+    if (!form) return res.status(404).json({ message: 'Form not found' });
+
+    // 2. Check Expiration (TTL)
+    if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
+      return res.status(410).json({ 
+        message: 'This form has expired and is no longer accepting responses.',
+        isExpired: true 
+      });
     }
+
+    // 3. Security Check: Password Protection
+    const isProtected = form.settings?.privacy === 'protected';
+    
+    if (isProtected) {
+      // If no password provided OR password doesn't match
+      if (!password || password !== form.settings.password) {
+        // Return "Locked" state - DO NOT send questions
+        return res.status(200).json({
+          _id: form._id,
+          title: form.title,
+          isLocked: true,
+          requiresPassword: true,
+          headerImage: form.headerImage
+        });
+      }
+    }
+
+    // 4. If Public or Password Verified -> Return Full Data
+    // Remove sensitive data before sending
+    const formPayload = form.toObject();
+    if (formPayload.settings && formPayload.settings.password) {
+      delete formPayload.settings.password; 
+    }
+
+    res.status(200).json(formPayload);
+
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    res.status(500).json({ message: 'Server Error', error });
+  }
 };
 
-// NEW: Fetch all versions for a form
-export const getFormVersions = async (req, res) => {
+// --- UPDATE FORM (With Versioning) ---
+export const updateForm = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const form = await Form.findById(id);
+    if (!form) return res.status(404).json({ message: 'Form not found' });
+
+    // Auto-Increment Version
+    const newVersion = (form.version || 1) + 1;
+    updateData.version = newVersion;
+
+    const updatedForm = await Form.findByIdAndUpdate(id, updateData, { new: true });
+
+    // Create Version Snapshot
+    await FormVersion.create({
+      formId: form._id,
+      versionNumber: newVersion,
+      snapshot: {
+        title: updatedForm.title,
+        questions: updatedForm.questions,
+        settings: updatedForm.settings
+      },
+      changeLog: 'Update via Editor'
+    });
+
+    res.status(200).json(updatedForm);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating form', error });
+  }
+};
+
+// --- DELETE FORM ---
+export const deleteForm = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Form.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Form deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting form', error });
+  }
+};
+
+// --- GET USER FORMS ---
+export const getUserForms = async (req, res) => {
     try {
-        const versions = await FormVersion.find({ formId: req.params.id }).sort({ createdAt: -1 });
-        res.status(200).json(versions);
+        const { userId } = req.params;
+        const forms = await Form.find({ creatorId: userId }).sort({ createdAt: -1 });
+        res.status(200).json(forms);
     } catch (error) {
-        res.status(500).json({ message: 'Could not fetch versions' });
+        res.status(500).json({ message: 'Error fetching user forms', error });
     }
 };

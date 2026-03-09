@@ -2,131 +2,167 @@
 import Groq from 'groq-sdk';
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
+import pdf from 'pdf-parse/lib/pdf-parse.js'; // Ensure you have installed pdf-parse
 
-// This is the most important part.
-// We are "prompt engineering" to force the AI to return JSON
-// in the exact structure our database models expect.
+// --- SHARED SYSTEM PROMPT ---
 const getSystemPrompt = () => {
   return `
-    You are an expert quiz creator. A user will provide a topic, and you must generate a quiz about it.
-    You must respond ONLY with a single JSON object in the exact structure requested, with no other text or markdown.
+    You are an expert assessment architect.
+    You must respond ONLY with a single JSON object (no markdown, no backticks).
     
-    The JSON object must have this structure:
+    Structure:
     {
-      "title": "Your Generated Quiz Title",
+      "title": "A Creative Title",
       "questions": [
         {
           "type": "MultipleChoice",
-          "text": "Your question text?",
-          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-          "correctAnswer": "The correct option text"
+          "content": {
+            "question": "Question text?",
+            "options": ["A", "B", "C", "D"],
+            "correctAnswer": "A"
+          }
         },
         {
           "type": "Comprehension",
-          "comprehensionPassage": "A short passage (2-4 sentences) for the user to read.",
-          "mcqs": [
-            {
-              "questionText": "First question about the passage?",
-              "options": ["Option 1", "Option 2", "Option 3"],
-              "correctAnswer": "The correct option text"
-            },
-            {
-              "questionText": "Second question about the passage?",
-              "options": ["Option A", "Option B", "Option C"],
-              "correctAnswer": "The correct option text"
-            }
-          ]
+          "content": {
+            "comprehensionPassage": "Short passage text...",
+            "mcqs": [
+              { "questionText": "Sub-question 1?", "options": ["1", "2"], "correctAnswer": "1" }
+            ]
+          }
         },
         {
-          "type": "Categorize",
-          "categories": ["Category A", "Category B"],
-          "items": [
-            { "text": "Item 1", "category": "Category A" },
-            { "text": "Item 2", "category": "Category B" },
-            { "text": "Item 3", "category": "Category A" }
-          ]
+            "type": "Categorize",
+            "content": {
+                "categories": ["Cat A", "Cat B"],
+                "items": [
+                    { "text": "Item 1", "category": "Cat A" },
+                    { "text": "Item 2", "category": "Cat B" }
+                ]
+            }
+        },
+        {
+            "type": "Cloze",
+            "content": {
+                "sentence": "The capital of France is Paris.",
+                "blanks": ["Paris"]
+            }
         }
       ]
     }
 
     Rules:
-    - Respond with a single, minified JSON object.
-    - Do NOT use markdown (like \`\`\`json).
-    - ONLY use the question types: "MultipleChoice", "Comprehension", "Categorize".
-    - Do not use "ShortAnswer", "Heading", "Paragraph", "Banner", "Email", "Checkbox", "Dropdown", "Switch", "PictureChoice", or "Cloze".
-    - Create between 3 and 7 questions total.
-    - For "Comprehension" questions, you MUST generate at least 2 distinct multiple-choice questions ('mcqs') inside the 'mcqs' array.
-    - Ensure 'correctAnswer' for MultipleChoice exactly matches one of the strings in 'options'.
+    1. Output strictly valid JSON.
+    2. Create 5-10 high-quality questions based on the input context.
+    3. Use only these types: "MultipleChoice", "Comprehension", "Categorize", "Cloze".
+    4. For "Comprehension", generate a relevant passage from the source text.
   `;
 };
 
+// --- HELPER: SAVE TO DB ---
+const saveGeneratedForm = async (aiData, userId, username, res) => {
+    try {
+        const newForm = new Form({
+            title: aiData.title || 'AI Generated Assessment',
+            creatorId: userId,
+            username: username || 'AI Architect',
+            theme: 'Light',
+            questions: []
+        });
+        
+        const savedForm = await newForm.save();
+        const questionIds = [];
+
+        for (const qData of aiData.questions) {
+            // Handle content mapping based on structure
+            // If the AI returns "text" instead of "content.question", we normalize it here
+            let contentPayload = qData.content || {};
+            
+            // Fallback normalization if AI drifts from strict structure
+            if (!contentPayload.question && qData.text) contentPayload.question = qData.text;
+            if (!contentPayload.options && qData.options) contentPayload.options = qData.options;
+            if (!contentPayload.correctAnswer && qData.correctAnswer) contentPayload.correctAnswer = qData.correctAnswer;
+
+            const newQuestion = new Question({
+                formId: savedForm._id, 
+                type: qData.type,
+                content: contentPayload
+            });
+            const savedQuestion = await newQuestion.save();
+            questionIds.push(savedQuestion._id);
+        }
+
+        savedForm.questions = questionIds;
+        await savedForm.save();
+
+        res.status(201).json({ formId: savedForm._id });
+    } catch (error) {
+        console.error("Database Save Error:", error);
+        res.status(500).json({ message: 'Failed to save generated form.', error: error.message });
+    }
+};
+
+// --- TEXT-TO-QUIZ ---
 export const generateFormWithAI = async (req, res) => {
-  // We receive userId from the frontend
   const { prompt, userId, username } = req.body; 
-  
-  if (!prompt || !userId) {
-      return res.status(400).json({ message: 'Prompt and User ID are required.' });
-  }
+  if (!prompt || !userId) return res.status(400).json({ message: 'Prompt/User required.' });
   
   try {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const chatCompletion = await groq.chat.completions.create({
+      const completion = await groq.chat.completions.create({
           messages: [
               { role: "system", content: getSystemPrompt() },
-              { role: "user", content: `User prompt: "${prompt}"` }
+              { role: "user", content: `Generate a quiz about: ${prompt}` }
           ],
           model: "llama-3.1-8b-instant",
           response_format: { type: "json_object" }
       });
 
-      const aiResponse = JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
-
-      // 1. Create the Form
-      const newForm = new Form({
-          title: aiResponse.title || 'AI Generated Assessment',
-          // FIXED: Changed userId to creatorId to match Form.js schema
-          creatorId: userId, 
-          username: username || 'AI User',
-          theme: 'Light',
-          questions: []
-      });
-      
-      const savedForm = await newForm.save();
-
-      const questionIds = [];
-
-      // 2. Map AI response to Question Schema
-      for (const qData of aiResponse.questions) {
-          const newQuestion = new Question({
-              formId: savedForm._id, 
-              type: qData.type,
-              content: {
-                  question: qData.text || qData.questionText || "",
-                  options: qData.options || [],
-                  correctAnswer: qData.correctAnswer || "",
-                  categories: qData.categories || [],
-                  items: qData.items || [],
-                  comprehensionPassage: qData.comprehensionPassage || "",
-                  mcqs: qData.mcqs || []
-              }
-          });
-          
-          const savedQuestion = await newQuestion.save();
-          questionIds.push(savedQuestion._id);
-      }
-
-      // 3. Update Form with Question IDs
-      savedForm.questions = questionIds;
-      await savedForm.save();
-
-      res.status(201).json({ formId: savedForm._id });
+      const aiResponse = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      await saveGeneratedForm(aiResponse, userId, username, res);
 
   } catch (error) {
-      console.error("AI generation or database creation failed:", error);
-      res.status(500).json({ message: 'Failed to generate AI form.', error: error.message });
+      console.error("AI Gen Error:", error);
+      res.status(500).json({ message: 'AI generation failed.', error: error.message });
   }
 };
 
+// --- DOCUMENT-TO-QUIZ (RAG) ---
+export const generateFormFromDocument = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    // 1. Extract Text from PDF
+    const dataBuffer = req.file.buffer;
+    const data = await pdf(dataBuffer);
+    
+    // Clean and limit text to fit context window (approx 15k chars for safety)
+    const textContent = data.text.replace(/\n+/g, " ").substring(0, 15000); 
+
+    // 2. Feed to AI
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+        messages: [
+            { role: "system", content: getSystemPrompt() },
+            { role: "user", content: `Generate a quiz based strictly on this document content: \n\n${textContent}` }
+        ],
+        model: "llama-3.1-8b-instant",
+        response_format: { type: "json_object" }
+    });
+
+    const aiResponse = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    
+    // 3. Save
+    const { userId, username } = req.body;
+    await saveGeneratedForm(aiResponse, userId, username, res);
+
+  } catch (error) {
+    console.error("Doc Parsing Error:", error);
+    res.status(500).json({ message: 'Document analysis failed.', error: error.message });
+  }
+};
+
+// --- VISION (IMAGE-TO-QUESTION) ---
 export const generateQuestionFromImage = async (req, res) => {
   const { imageBase64 } = req.body; 
 
@@ -157,9 +193,11 @@ export const generateQuestionFromImage = async (req, res) => {
                        "questions": [
                          {
                            "type": "MultipleChoice",
-                           "text": "Question text here?",
-                           "options": ["Option A", "Option B", "Option C", "Option D"],
-                           "correctAnswer": "Option A" 
+                           "content": {
+                             "question": "Question text?",
+                             "options": ["Option A", "Option B", "Option C", "Option D"],
+                             "correctAnswer": "Option A"
+                           }
                          }
                        ]
                      }`
@@ -173,7 +211,7 @@ export const generateQuestionFromImage = async (req, res) => {
           ],
         },
       ],
-      model: "meta-llama/llama-4-scout-17b-16e-instruct", 
+      model: "llama-3.2-11b-vision-preview", // Updated vision model identifier if needed, or stick to what works
       temperature: 0,
       response_format: { type: "json_object" },
     });
@@ -182,6 +220,7 @@ export const generateQuestionFromImage = async (req, res) => {
     const aiResponse = JSON.parse(content || "{}");
     const questions = aiResponse.questions || (aiResponse.type ? [aiResponse] : []);
     
+    // Normalize structure for frontend if needed, or return as is
     res.status(200).json({ questions });
 
   } catch (error) {

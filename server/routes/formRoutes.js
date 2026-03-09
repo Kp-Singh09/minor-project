@@ -1,35 +1,23 @@
-// /server/routes/formRoutes.js
+// server/routes/formRoutes.js
 import express from 'express';
 import { 
-    createForm, 
-    addQuestionToForm, 
-    getFormById, 
-    updateForm, 
-    getFormsByUser, 
-    deleteForm,
-    updateQuestion,
-    deleteQuestionFromForm,
-    getFormVersions,
-    rollbackToVersion
+  createForm, 
+  getFormById, 
+  updateForm, 
+  deleteForm, 
+  getUserForms 
 } from '../controllers/formController.js';
 
 const router = express.Router();
 
-// Full path: /api/forms/user/:userId
-router.get('/user/:userId', getFormsByUser);
-
 router.post('/', createForm);
-router.get('/:id', getFormById);
+router.get('/user/:userId', getUserForms);
+
+// Public Access Routes
+router.get('/:id', getFormById); // Standard fetch
+router.post('/:id/access', getFormById); // Fetch with Password (POST allows body)
+
 router.put('/:id', updateForm);
-router.post('/:id/questions', addQuestionToForm);
 router.delete('/:id', deleteForm);
-
-// --- VERSIONING ROUTES ---
-router.get('/:id/versions', getFormVersions);
-router.post('/versions/:versionId/rollback', rollbackToVersion);
-
-// --- QUESTION ROUTES ---
-router.put('/questions/:questionId', updateQuestion);
-router.delete('/:formId/questions/:questionId', deleteQuestionFromForm);
 
 export default router;

@@ -1,169 +1,167 @@
 // client/src/components/FormCreator/AiPromptModal.jsx
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, Loader2, BrainCircuit, Image as ImageIcon, Upload, ScanEye } from 'lucide-react';
-import { useUser } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
-import api from '../../api/axiosConfig';
-import { toast } from 'react-hot-toast';
+import { Sparkles, FileText, Upload, Loader2, X } from 'lucide-react';
+import { GlassButton } from '../ui/GlassButton';
+import axios from '../../api/axiosConfig'; // Use your configured axios
+import toast from 'react-hot-toast';
 
-export default function AiPromptModal({ isOpen, onClose }) {
-  const { user } = useUser();
-  const navigate = useNavigate();
-  const [activeMode, setActiveMode] = useState('text'); // 'text' or 'vision'
+export default function AiPromptModal({ isOpen, onClose, userId, username, onSuccess }) {
+  const [mode, setMode] = useState('topic'); // 'topic' or 'document'
   const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Function to handle Image Upload and conversion to Base64
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleSubmit = async () => {
+    if (!userId) return toast.error("User identity missing");
+    setLoading(true);
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      return toast.error("Please upload a valid image file.");
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      setIsGenerating(true);
-      const loadingToast = toast.loading('Vision Engine analyzing the document...');
-      try {
-        // Calling your existing Vision endpoint
-        const response = await api.post('/ai/image-to-question', {
-          imageBase64: reader.result,
-          userId: user.id
-        });
-        
-        toast.success('Visual intelligence extracted', { id: loadingToast });
-        
-        // If the backend creates a form, navigate to it
-        if (response.data.formId) {
-          navigate(`/editor/${response.data.formId}`);
-        }
-        onClose();
-      } catch (error) {
-        toast.error('Vision analysis failed. Ensure the text is clear.', { id: loadingToast });
-        console.error("Vision Error:", error);
-      } finally {
-        setIsGenerating(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleTextGenerate = async () => {
-    if (!prompt.trim()) return;
-    setIsGenerating(true);
-    const loadingToast = toast.loading('AI is architecting your assessment...');
     try {
-      const response = await api.post('/ai/generate', {
-        prompt,
-        userId: user.id,
-        username: user.fullName || user.username
-      });
-      toast.success('Neural Synthesis Complete', { id: loadingToast });
-      navigate(`/editor/${response.data.formId}`);
+      let response;
+      if (mode === 'topic') {
+        if (!prompt.trim()) throw new Error("Please enter a topic");
+        response = await axios.post('/api/ai/generate', {
+          prompt,
+          userId,
+          username
+        });
+      } else {
+        if (!file) throw new Error("Please upload a PDF");
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', userId);
+        formData.append('username', username);
+        
+        response = await axios.post('/api/ai/upload-pdf', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+
+      toast.success("Neural Architecture Generated!");
+      onSuccess(response.data.formId);
       onClose();
-    } catch (error) {
-      toast.error('AI Synthesis Failed', { id: loadingToast });
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Generation Failed");
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="glass-card w-full max-w-xl p-8 border-white/10 shadow-2xl relative bg-[#0a0a0a]"
-          >
-            <button onClick={onClose} className="absolute top-6 right-6 text-white/20 hover:text-white transition-colors">
-              <X size={20} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-400">
-                <BrainCircuit size={28} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white tracking-tight">Neural Generator</h3>
-                <p className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em]">Phase 2: Intelligent Synthesis</p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="w-full max-w-lg glass-card border border-white/10 shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="relative p-6 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-b border-white/5">
+          <button onClick={onClose} className="absolute top-4 right-4 text-white/40 hover:text-white">
+            <X size={20} />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500 rounded-lg shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+              <Sparkles className="text-white" size={24} />
             </div>
-
-            {/* Mode Switcher */}
-            <div className="flex gap-2 mb-8 bg-white/5 p-1 rounded-xl border border-white/5">
-              <button 
-                onClick={() => setActiveMode('text')}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeMode === 'text' ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white'}`}
-              >
-                <Sparkles size={14} /> Text Prompt
-              </button>
-              <button 
-                onClick={() => setActiveMode('vision')}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeMode === 'vision' ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white'}`}
-              >
-                <ScanEye size={14} /> Vision / OCR
-              </button>
+            <div>
+              <h2 className="text-xl font-bold text-white">Neural Generator</h2>
+              <p className="text-xs text-indigo-200">AI-Powered Assessment Architect</p>
             </div>
-
-            {activeMode === 'text' ? (
-              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
-                <textarea 
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="e.g., 'Generate 5 MCQs on the laws of thermodynamics for high school level'..."
-                  className="w-full h-44 glass-input bg-white/5 border-white/10 focus:border-indigo-500/50 p-4 text-sm resize-none mb-6 text-white placeholder:text-white/10 rounded-xl"
-                />
-                <button 
-                  onClick={handleTextGenerate}
-                  disabled={isGenerating || !prompt.trim()}
-                  className="w-full py-4 rounded-xl bg-white text-black font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all disabled:opacity-50"
-                >
-                  {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                  Deploy Generation
-                </button>
-              </motion.div>
-            ) : (
-              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
-                <div className="h-64 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center group hover:border-indigo-500/30 transition-all cursor-pointer relative overflow-hidden bg-white/[0.01]">
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleImageUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                    disabled={isGenerating}
-                  />
-                  {isGenerating ? (
-                    <div className="flex flex-col items-center gap-4">
-                      <Loader2 className="animate-spin text-indigo-500" size={40} />
-                      <p className="text-white/40 font-mono text-[10px] uppercase tracking-widest">Scanning Pixels...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Upload className="text-white/20 group-hover:text-indigo-400" size={32} />
-                      </div>
-                      <p className="text-white font-bold">Upload Assessment Scan</p>
-                      <p className="text-white/30 text-[10px] uppercase font-mono mt-2 tracking-widest">Supports PNG, JPG (OCR Enabled)</p>
-                    </>
-                  )}
-                </div>
-                <div className="mt-6 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
-                  <p className="text-[10px] text-indigo-300/60 leading-relaxed italic">
-                    Note: Vision mode works best with clear, high-contrast photos of printed or clearly handwritten text.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
+          </div>
         </div>
-      )}
-    </AnimatePresence>
+
+        {/* Body */}
+        <div className="p-6 space-y-6">
+          {/* Mode Switcher */}
+          <div className="flex bg-black/20 p-1 rounded-xl">
+            <button 
+              onClick={() => setMode('topic')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${mode === 'topic' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Sparkles size={16} /> Topic Prompt
+            </button>
+            <button 
+              onClick={() => setMode('document')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${mode === 'document' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+              <FileText size={16} /> Upload PDF
+            </button>
+          </div>
+
+          <div className="min-h-[150px]">
+            <AnimatePresence mode="wait">
+              {mode === 'topic' ? (
+                <motion.div 
+                  key="topic"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Enter Topic or Concept
+                  </label>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="e.g., Advanced React Patterns, History of Rome, Thermodynamics..."
+                    className="w-full h-32 bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                  />
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="document"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Upload Source Document (PDF)
+                  </label>
+                  <div className="border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-white/5 transition-colors relative">
+                    <input 
+                      type="file" 
+                      accept=".pdf"
+                      onChange={(e) => setFile(e.target.files[0])}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="p-4 bg-indigo-500/10 rounded-full mb-3">
+                      <Upload size={24} className="text-indigo-400" />
+                    </div>
+                    {file ? (
+                      <span className="text-emerald-400 font-medium truncate max-w-full px-4">
+                        {file.name}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-sm text-slate-300 font-medium">Click to Upload PDF</span>
+                        <span className="text-xs text-slate-500 mt-1">Max size 5MB</span>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <GlassButton 
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold tracking-wide shadow-lg hover:shadow-indigo-500/25 disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin" size={18} /> Processing Neural Network...
+              </span>
+            ) : (
+              "GENERATE ASSESSMENT"
+            )}
+          </GlassButton>
+        </div>
+      </motion.div>
+    </div>
   );
 }

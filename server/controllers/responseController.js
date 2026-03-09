@@ -15,7 +15,7 @@ export const getResponsesByUserId = async (req, res) => {
             .sort({ submittedAt: -1 });
         res.status(200).json(responses);
     } catch (error) {
-        res.status(500).json({ message: 'Server Error: Could not retrieve user responses', error });
+        res.status(500).json({ message: 'Server Error', error });
     }
 };
 
@@ -26,12 +26,10 @@ export const getSingleResponseById = async (req, res) => {
       path: 'answers.questionId',
       model: 'Question'
     });
-    if (!response) {
-      return res.status(404).json({ message: 'Response not found' });
-    }
+    if (!response) return res.status(404).json({ message: 'Response not found' });
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error: Could not retrieve response', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 };
 
@@ -42,33 +40,27 @@ export const getResponsesByFormId = async (req, res) => {
         path: 'answers.questionId',
         model: 'Question'
       });
-      if (!responses) {
-        return res.status(404).json({ message: 'No responses found for this form' });
-      }
+      if (!responses) return res.status(404).json({ message: 'No responses found' });
       res.status(200).json(responses);
     } catch (error) {
-      res.status(500).json({ message: 'Server Error: Could not retrieve responses', error });
+      res.status(500).json({ message: 'Server Error', error });
     }
-  };
+};
 
 export const createResponse = async (req, res) => {
   try {
-    // 1. Destructure username here
-    const { formId, answers, userId, userEmail, username } = req.body; 
+    // 1. Destructure integrityFlags along with other data
+    const { formId, answers, userId, userEmail, username, integrityFlags } = req.body; 
 
     if (!userId || !userEmail) {
       return res.status(400).json({ message: 'User details are required.' });
     }
 
     const form = await Form.findById(formId).populate('questions');
-    if (!form) {
-      return res.status(404).json({ message: 'Form not found' });
-    }
+    if (!form) return res.status(404).json({ message: 'Form not found' });
 
     let totalScore = 0;
     const marksPerQuestion = 10;
-
-    // --- Only count scorable questions for the total marks ---
     const SCORABLE_TYPES = [
       'Comprehension', 'Categorize', 'Cloze', 
       'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
@@ -86,7 +78,6 @@ export const createResponse = async (req, res) => {
       let questionScore = 0;
       
       switch (question.type) {
-        // Complex Types
         case 'Comprehension':
           if (question.mcqs && question.mcqs.length > 0) {
             const pointsPerMcq = marksPerQuestion / question.mcqs.length;
@@ -97,7 +88,6 @@ export const createResponse = async (req, res) => {
             });
           }
           break;
-        
         case 'Categorize':
           if (question.items && question.items.length > 0) {
             const pointsPerItem = marksPerQuestion / question.items.length;
@@ -111,7 +101,6 @@ export const createResponse = async (req, res) => {
             });
           }
           break;
-          
         case 'Cloze':
           const correctClozeAnswers = question.options;
           if (correctClozeAnswers && correctClozeAnswers.length > 0) {
@@ -123,8 +112,6 @@ export const createResponse = async (req, res) => {
             }
           }
           break;
-
-        // Simple Scorable Types
         case 'MultipleChoice':
         case 'Dropdown':
         case 'PictureChoice':
@@ -132,7 +119,6 @@ export const createResponse = async (req, res) => {
             questionScore = marksPerQuestion;
           }
           break;
-
         case 'Checkbox':
           const userAnswers = Array.isArray(submittedAnswer.answer) ? submittedAnswer.answer.sort() : [];
           const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.sort() : [];
@@ -140,8 +126,6 @@ export const createResponse = async (req, res) => {
             questionScore = marksPerQuestion;
           }
           break;
-
-        // Non-Scorable types (Email, ShortAnswer, Switch) get 0 points by default
       }
 
       totalScore += questionScore;
@@ -156,18 +140,19 @@ export const createResponse = async (req, res) => {
       answers: processedAnswers, 
       userId,
       userEmail,
-      username: username || 'Anonymous', // 2. Save the username
+      username: username || 'Anonymous',
       score: Math.round(totalScore),
-      totalMarks
+      totalMarks,
+      integrityFlags: integrityFlags || [] // 2. Save the flags
     });
     
     const savedResponse = await newResponse.save();
     form.responses.push(savedResponse._id);
     await form.save();
 
-    res.status(201).json({ message: 'Response submitted successfully!', responseId: savedResponse._id });
+    res.status(201).json({ message: 'Response submitted!', responseId: savedResponse._id });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server Error: Could not submit response', error });
+    res.status(500).json({ message: 'Server Error', error });
   }
 };
