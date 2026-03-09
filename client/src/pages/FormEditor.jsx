@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from '../api/axiosConfig'; 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Trash2, Radio, MessageSquareText } from 'lucide-react'; // Added MessageSquareText
+import { Sparkles, Trash2, Radio, MessageSquareText, Users } from 'lucide-react'; // Added Users
 import toast from 'react-hot-toast';
 
 // Socket
@@ -16,8 +16,9 @@ import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
 import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder'; 
 
-// AI Modal
+// Modals
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
+import TeamModal from '../components/FormCreator/TeamModal'; // NEW IMPORT
 
 const FormEditor = () => {
     const { formId } = useParams();
@@ -36,10 +37,14 @@ const FormEditor = () => {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [currentTitle, setCurrentTitle] = useState("");
     const [copied, setCopied] = useState(false);
+    
+    // Modal States
     const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [teamModalOpen, setTeamModalOpen] = useState(false); // NEW STATE
     
     // Real-Time States
-    const [collaborators, setCollaborators] = useState([]);
+    const [collaborators, setCollaborators] = useState([]); // Live socket users
+    const [teamList, setTeamList] = useState([]); // Database RBAC list
     const socketRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -49,9 +54,11 @@ const FormEditor = () => {
     useEffect(() => {
         const fetchForm = async () => {
             try {
-                const response = await axios.get(`/api/forms/${formId}`);
+                // We pass userId in query so backend can verify Creator vs Collaborator logic if needed
+                const response = await axios.get(`/api/forms/${formId}?userId=${userId}`);
                 setForm(response.data);
                 setCurrentTitle(response.data.title);
+                setTeamList(response.data.collaborators || []); // Load stored team
             } catch (err) {
                 setError('Failed to fetch form data.');
                 toast.error("Could not load form");
@@ -62,13 +69,13 @@ const FormEditor = () => {
 
         if (isNewForm) {
             const defaultTitle = 'Untitled Assessment';
-            setForm({ title: defaultTitle, questions: [], headerImage: null });
+            setForm({ title: defaultTitle, questions: [], headerImage: null, collaborators: [] });
             setCurrentTitle(defaultTitle);
             setLoading(false);
         } else {
             fetchForm();
         }
-    }, [formId, isNewForm]);
+    }, [formId, isNewForm, userId]);
 
     // 2. SOCKET CONNECTION (The Neural Link)
     useEffect(() => {
@@ -84,7 +91,10 @@ const FormEditor = () => {
 
         socket.on("user_joined", ({ user: newUser }) => {
             toast(`${newUser.username} joined the session`, { icon: '👋' });
-            setCollaborators(prev => [...prev, newUser]);
+            setCollaborators(prev => {
+                if (prev.some(u => u.id === newUser.id)) return prev;
+                return [...prev, newUser];
+            });
         });
 
         socket.on("form_title_updated", ({ title, userId: senderId }) => {
@@ -260,8 +270,6 @@ const FormEditor = () => {
     };
 
     const handleViewForm = () => { if (!isNewForm) window.open(`/form/${formId}`, '_blank'); };
-    
-    // NEW: Open Chat Mode
     const handleChatMode = () => { if (!isNewForm) window.open(`/form/${formId}/chat`, '_blank'); };
 
     const handleDeleteForm = async () => {
@@ -305,9 +313,19 @@ const FormEditor = () => {
                 onSuccess={handleAiSuccess}
             />
 
-            {/* Header Card with Collaboration Status */}
+            {/* NEW TEAM MODAL */}
+            <TeamModal 
+                isOpen={teamModalOpen}
+                onClose={() => setTeamModalOpen(false)}
+                formId={formId}
+                collaborators={teamList}
+                onUpdate={(newList) => setTeamList(newList)}
+            />
+
+            {/* Header Card */}
             <div className="bg-white p-6 rounded-lg mb-8 border border-gray-200 shadow-md border-t-4 border-t-indigo-500 relative">
-                {/* Live Indicator */}
+                
+                {/* Live Indicator & Settings */}
                 <div className="absolute top-4 right-4 flex items-center gap-2">
                     {collaborators.length > 0 && (
                         <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold border border-green-200">
@@ -315,9 +333,15 @@ const FormEditor = () => {
                             {collaborators.length} Live
                         </div>
                     )}
-                    <div className="bg-slate-100 text-slate-500 px-2 py-1 rounded-full text-xs font-mono border border-slate-200">
-                        {isNewForm ? "Offline" : "Socket Active"}
-                    </div>
+                    
+                    {/* Team Button */}
+                    <button 
+                        onClick={() => setTeamModalOpen(true)}
+                        disabled={isNewForm}
+                        className="flex items-center gap-1 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                    >
+                        <Users size={12} /> Team
+                    </button>
                 </div>
 
                 {form.headerImage && <img src={form.headerImage} alt="Form Header" className="w-full h-48 object-cover rounded-lg mb-4" />}
@@ -420,7 +444,7 @@ const FormEditor = () => {
                 )}
             </div>
       
-            {/* Footer with CHAT MODE Button */}
+            {/* Footer with Chat Mode */}
             <div className="mt-12 border-t border-gray-300 pt-6 flex justify-between items-center gap-4">
                 <button
                     onClick={handleDeleteForm}
@@ -440,7 +464,6 @@ const FormEditor = () => {
                         {copied ? 'Copied!' : 'Share'}
                     </button>
                     
-                    {/* NEW: Chat Mode Button */}
                     <button
                         onClick={handleChatMode}
                         disabled={isNewForm}

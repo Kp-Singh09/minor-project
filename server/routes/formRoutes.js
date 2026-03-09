@@ -5,7 +5,9 @@ import {
   getFormById, 
   updateForm, 
   deleteForm, 
-  getUserForms 
+  getUserForms,
+  addCollaborator,
+  removeCollaborator
 } from '../controllers/formController.js';
 
 const router = express.Router();
@@ -13,11 +15,15 @@ const router = express.Router();
 router.post('/', createForm);
 router.get('/user/:userId', getUserForms);
 
-// Public Access Routes
-router.get('/:id', getFormById); // Standard fetch
-router.post('/:id/access', getFormById); // Fetch with Password (POST allows body)
+// Public/Secure Access
+router.get('/:id', getFormById); 
+router.post('/:id/access', getFormById); 
 
 router.put('/:id', updateForm);
 router.delete('/:id', deleteForm);
+
+// Collaboration Routes
+router.post('/:id/collaborators', addCollaborator);
+router.delete('/:id/collaborators', removeCollaborator);
 
 export default router;

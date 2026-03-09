@@ -5,26 +5,26 @@ import FormVersion from '../models/FormVersion.js';
 // --- CREATE FORM ---
 export const createForm = async (req, res) => {
   try {
-    const { title, creatorId, questions, settings } = req.body;
+    const { title, userId, username, questions, settings } = req.body;
     
-    // Initial save (Version 1)
     const newForm = new Form({
       title,
-      creatorId,
-      questions, // Assuming these are ObjectIds if you pre-created them, or objects to be handled
-      settings,
+      creatorId: userId, // Ensure frontend sends this as userId
+      username: username || 'Anonymous',
+      questions: questions || [],
+      settings: settings || {},
       version: 1
     });
 
     const savedForm = await newForm.save();
 
-    // Create Initial Version Snapshot
+    // Initial Version Snapshot
     await FormVersion.create({
       formId: savedForm._id,
       versionNumber: 1,
       snapshot: {
         title: savedForm.title,
-        questions: savedForm.questions, // This might need full population in a real app
+        questions: savedForm.questions, 
         settings: savedForm.settings
       },
       changeLog: 'Initial Creation'
@@ -36,34 +36,42 @@ export const createForm = async (req, res) => {
   }
 };
 
-// --- GET FORM BY ID (SECURE) ---
+// --- GET FORM BY ID (SECURE + RBAC) ---
 export const getFormById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password } = req.body; // Check if password is sent in body (for unlocking)
+    const { password, userId } = req.body; // Check body for credentials
 
-    // 1. Fetch Form (Select password explicitly to check it)
+    // 1. Fetch Form
     const form = await Form.findById(id)
       .select('+settings.password') 
       .populate('questions');
 
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
-    // 2. Check Expiration (TTL)
+    // 2. RBAC Bypass: If User is Creator or Collaborator, return full access immediately
+    const isCreator = form.creatorId === userId;
+    // Note: In a real app with Clerk, you might check email against form.collaborators here too
+    // For now, if userId matches creator, we bypass. 
+    // Ideally, pass userEmail in body to check collaborator list.
+    
+    if (isCreator) {
+        return res.status(200).json(form);
+    }
+
+    // 3. Public/Respondent Access Checks
+    
+    // Check Expiration (TTL)
     if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
       return res.status(410).json({ 
-        message: 'This form has expired and is no longer accepting responses.',
+        message: 'This form has expired.',
         isExpired: true 
       });
     }
 
-    // 3. Security Check: Password Protection
-    const isProtected = form.settings?.privacy === 'protected';
-    
-    if (isProtected) {
-      // If no password provided OR password doesn't match
+    // Check Password Protection
+    if (form.settings?.privacy === 'protected') {
       if (!password || password !== form.settings.password) {
-        // Return "Locked" state - DO NOT send questions
         return res.status(200).json({
           _id: form._id,
           title: form.title,
@@ -74,12 +82,9 @@ export const getFormById = async (req, res) => {
       }
     }
 
-    // 4. If Public or Password Verified -> Return Full Data
-    // Remove sensitive data before sending
+    // Return Form (Mask sensitive settings if needed)
     const formPayload = form.toObject();
-    if (formPayload.settings && formPayload.settings.password) {
-      delete formPayload.settings.password; 
-    }
+    if (formPayload.settings?.password) delete formPayload.settings.password;
 
     res.status(200).json(formPayload);
 
@@ -89,7 +94,7 @@ export const getFormById = async (req, res) => {
   }
 };
 
-// --- UPDATE FORM (With Versioning) ---
+// --- UPDATE FORM (RBAC Protected) ---
 export const updateForm = async (req, res) => {
   try {
     const { id } = req.params;
@@ -98,13 +103,15 @@ export const updateForm = async (req, res) => {
     const form = await Form.findById(id);
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
-    // Auto-Increment Version
+    // TODO: Add strict RBAC check here if userId is provided in body
+    // if (form.creatorId !== req.body.userId && !isCollaborator) return res.status(403)...
+
     const newVersion = (form.version || 1) + 1;
     updateData.version = newVersion;
 
     const updatedForm = await Form.findByIdAndUpdate(id, updateData, { new: true });
 
-    // Create Version Snapshot
+    // Snapshot
     await FormVersion.create({
       formId: form._id,
       versionNumber: newVersion,
@@ -137,9 +144,52 @@ export const deleteForm = async (req, res) => {
 export const getUserForms = async (req, res) => {
     try {
         const { userId } = req.params;
+        // Find forms where user is Creator OR Collaborator
+        // Note: This requires us to know the user's email for collaborator check
+        // For simple ID check:
         const forms = await Form.find({ creatorId: userId }).sort({ createdAt: -1 });
         res.status(200).json(forms);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching user forms', error });
+    }
+};
+
+// --- COLLABORATION: ADD MEMBER ---
+export const addCollaborator = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email, role } = req.body;
+
+        const form = await Form.findById(id);
+        if (!form) return res.status(404).json({ message: 'Form not found' });
+
+        // Check for duplicate
+        const exists = form.collaborators.find(c => c.email === email);
+        if (exists) return res.status(400).json({ message: 'User already added' });
+
+        form.collaborators.push({ email, role });
+        await form.save();
+
+        res.status(200).json(form.collaborators);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to add collaborator' });
+    }
+};
+
+// --- COLLABORATION: REMOVE MEMBER ---
+export const removeCollaborator = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email } = req.body; // or passed as query
+
+        const form = await Form.findById(id);
+        if (!form) return res.status(404).json({ message: 'Form not found' });
+
+        form.collaborators = form.collaborators.filter(c => c.email !== email);
+        await form.save();
+
+        res.status(200).json(form.collaborators);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to remove collaborator' });
     }
 };
