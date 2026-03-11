@@ -82,12 +82,13 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) =
 
   useEffect(() => {
     if (initialData) {
-      setQuestionText(initialData.text || 'Which one is correct?');
-      if (initialData.options && initialData.options.length > 0) {
+      const data = initialData.content || initialData;
+      setQuestionText(data.question || data.text || 'Which one is correct?');
+      if (data.options && data.options.length > 0) {
         setOptions(
-          initialData.options.map(imgUrl => ({
+          data.options.map(imgUrl => ({
             image: imgUrl,
-            isCorrect: imgUrl === initialData.correctAnswer
+            isCorrect: imgUrl === data.correctAnswer
           }))
         );
       }
@@ -125,11 +126,13 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) =
     }
     
     onSave({ 
-      ...initialData, 
+      _id: initialData?._id,
       type: 'PictureChoice', 
-      text: questionText, 
-      options: options.map(opt => opt.image), 
-      correctAnswer: correctOption ? correctOption.image : null
+      content: {
+        question: questionText, 
+        options: options.map(opt => opt.image), 
+        correctAnswer: correctOption ? correctOption.image : null
+      }
     });
   };
 

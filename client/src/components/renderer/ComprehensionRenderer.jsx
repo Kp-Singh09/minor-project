@@ -1,67 +1,61 @@
-// src/components/renderer/ComprehensionRenderer.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-const ComprehensionRenderer = ({ question, onAnswerChange, theme }) => {
-  const [selectedAnswerIndices, setSelectedAnswerIndices] = useState({});
+const ComprehensionRenderer = ({ question, onAnswerChange, theme, savedAnswer }) => {
+  const content = question.content || {};
+  const passage = content.comprehensionPassage || '';
+  const mcqs = content.mcqs || [];
+  
+  const [answers, setAnswers] = useState(savedAnswer || {});
 
-  const handleSelection = (mcqId, optionIndex, optionText) => {
-    const newSelectedIndices = { ...selectedAnswerIndices, [mcqId]: optionIndex };
-    setSelectedAnswerIndices(newSelectedIndices);
-    
-    const newAnswersForParent = {};
-    for (const id in newSelectedIndices) {
-        const questionForMcq = question.mcqs.find(mcq => mcq._id === id);
-        if (questionForMcq) {
-            newAnswersForParent[id] = questionForMcq.options[newSelectedIndices[id]];
-        }
-    }
-    
-    onAnswerChange(question._id, newAnswersForParent);
+  const handleSelect = (qIndex, option) => {
+    const newAnswers = { ...answers, [qIndex]: option };
+    setAnswers(newAnswers);
+    onAnswerChange(question._id, newAnswers);
   };
 
   return (
-    // --- APPLY THEME CARD ---
-    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg}`}>
-      {question.image && <img src={question.image} alt="Question visual" className="w-full h-48 object-cover rounded-md mb-6" />}
-      {/* --- APPLY THEME TEXT --- */}
-      <h3 className={`text-2xl font-bold mb-4 ${theme.text}`}>Reading Comprehension</h3>
-      
-      {/* --- Use theme.input for passage background, theme.secondaryText for text --- */}
-      <div className={`prose max-w-none p-4 rounded-md border border-gray-500/20 mb-6 ${theme.input} bg-opacity-30`}>
-        <p className={theme.secondaryText}>{question.comprehensionPassage}</p>
-      </div>
+    <div className={`rounded-lg overflow-hidden border ${theme.cardBg} border-white/10`}>
+      {/* Split View */}
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {/* Passage (Left) */}
+        <div className="p-6 bg-white/5 border-r border-white/10 max-h-[500px] overflow-y-auto">
+            <h4 className="text-sm font-bold text-indigo-400 uppercase mb-3">Reading Passage</h4>
+            <p className={`whitespace-pre-wrap leading-relaxed ${theme.text}`}>{passage}</p>
+        </div>
 
-      <div className="space-y-6">
-        {question.mcqs.map((mcq) => (
-          <div key={mcq._id} className="border-t border-gray-500/20 pt-4">
-            {/* --- APPLY THEME TEXT --- */}
-            <p className={`font-semibold text-lg mb-3 ${theme.text}`}>{mcq.questionText}</p>
-            <div className="space-y-2">
-              {mcq.options.map((optionText, optIndex) => {
-                const uniqueId = `mcq-option-${mcq._id}-${optIndex}`;
-                return (
-                  <label key={uniqueId} htmlFor={uniqueId} className="flex items-center p-3 rounded-md hover:bg-gray-500/10 cursor-pointer transition-colors">
-                    <input
-                      id={uniqueId}
-                      type="radio"
-                      name={`mcq-${mcq._id}`}
-                      value={optIndex}
-                      checked={selectedAnswerIndices[mcq._id] === optIndex}
-                      onChange={() => handleSelection(mcq._id, optIndex, optionText)}
-                      // --- APPLY THEME RADIO ---
-                      className={`mr-4 h-5 w-5 ${theme.radio}`}
-                    />
-                    {/* --- APPLY THEME SECONDARY TEXT --- */}
-                    <span className={theme.secondaryText}>{optionText}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        {/* Questions (Right) */}
+        <div className="p-6 space-y-8 max-h-[500px] overflow-y-auto">
+            {mcqs.map((mcq, idx) => (
+                <div key={idx}>
+                    <p className={`font-semibold mb-3 ${theme.text}`}>
+                        {idx + 1}. {mcq.questionText}
+                    </p>
+                    <div className="space-y-2">
+                        {mcq.options.map((opt, oIdx) => (
+                            <label 
+                                key={oIdx} 
+                                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    answers[idx] === opt 
+                                        ? 'bg-indigo-500/20 border-indigo-500/50' 
+                                        : 'bg-black/20 border-transparent hover:bg-white/5'
+                                }`}
+                            >
+                                <input 
+                                    type="radio" 
+                                    name={`comp-${question._id}-${idx}`}
+                                    checked={answers[idx] === opt}
+                                    onChange={() => handleSelect(idx, opt)}
+                                    className="mr-3 accent-indigo-500"
+                                />
+                                <span className="text-sm text-slate-300">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
       </div>
     </div>
   );
 };
-
 export default ComprehensionRenderer;

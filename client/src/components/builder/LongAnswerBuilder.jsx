@@ -15,14 +15,21 @@ const LongAnswerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'Long Answer Question');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'Long Answer Question');
     } else {
       setText('Long Answer Question');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'LongAnswer', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'LongAnswer', 
+      content: {
+        question: text 
+      }
+    });
   };
 
   return (

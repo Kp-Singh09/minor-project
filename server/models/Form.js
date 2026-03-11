@@ -8,7 +8,7 @@ const formSchema = new mongoose.Schema({
   theme: { type: String, default: 'default' },
   
   // Creator Info
-  creatorId: { type: String, required: true }, // Clerk User ID
+  creatorId: { type: String, required: true }, 
   username: { type: String },
   
   // Questions Link
@@ -20,12 +20,18 @@ const formSchema = new mongoose.Schema({
   // Settings & Security
   settings: {
     privacy: { type: String, enum: ['public', 'private', 'protected'], default: 'public' },
-    password: { type: String, select: false }, // Not returned by default
+    password: { type: String, select: false },
     expiresAt: { type: Date },
-    limitOneResponse: { type: Boolean, default: false }
+    limitOneResponse: { type: Boolean, default: false },
+    // NEW: Proctoring Level
+    proctoring: { 
+      type: String, 
+      enum: ['none', 'basic', 'full'], 
+      default: 'none' 
+    }
   },
 
-  // NEW: RBAC / Collaboration
+  // RBAC / Collaboration
   collaborators: [{
     email: { type: String, required: true },
     role: { type: String, enum: ['Editor', 'Viewer'], default: 'Editor' },

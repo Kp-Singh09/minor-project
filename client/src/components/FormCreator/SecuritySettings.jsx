@@ -1,101 +1,137 @@
 // client/src/components/FormCreator/SecuritySettings.jsx
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Shield, Lock, Calendar, Clock, Globe, Users } from 'lucide-react';
-import { GlassButton } from '../ui/GlassButton';
+import { Shield, Clock, Lock, Users, Eye, AlertTriangle } from 'lucide-react';
 
-export default function SecuritySettings({ formSettings, onUpdate }) {
-  const [settings, setSettings] = useState({
-    privacy: 'public', // public, protected, private
+const SecuritySettings = ({ settings, onUpdate, theme }) => {
+  // Local state to manage inputs before saving to parent
+  const [localSettings, setLocalSettings] = useState({
+    privacy: 'public',
     password: '',
     expiresAt: '',
-    ...formSettings
+    limitOneResponse: false,
+    proctoring: 'none', // Default
+    ...settings
   });
 
+  const currentTheme = theme || { 
+    name: 'Light',
+    cardBg: 'bg-white', 
+    text: 'text-gray-900', 
+    secondaryText: 'text-gray-500', 
+    input: 'bg-white border-gray-300 text-gray-900' 
+  };
+  
+  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
+
   useEffect(() => {
-    onUpdate(settings);
+    setLocalSettings(prev => ({ ...prev, ...settings }));
   }, [settings]);
 
+  const handleChange = (field, value) => {
+    const updated = { ...localSettings, [field]: value };
+    setLocalSettings(updated);
+    onUpdate(updated); // Propagate to parent FormEditor
+  };
+
   return (
-    <div className="p-6 bg-slate-900/50 rounded-xl border border-white/5 space-y-8">
-      <div className="flex items-center gap-2 mb-6 text-emerald-400">
-        <Shield size={18} />
-        <h3 className="font-bold text-sm uppercase tracking-wider">Access Control Protocol</h3>
-      </div>
+    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+      <h3 className={`text-xl font-bold mb-6 pb-4 border-b flex items-center gap-2 ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>
+        <Shield className="text-emerald-500" size={24} /> Security & Integrity
+      </h3>
 
-      {/* Privacy Level */}
-      <div className="space-y-4">
-        <label className="text-xs font-mono text-slate-400 uppercase">Visibility Level</label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[
-            { id: 'public', icon: Globe, label: 'Public', desc: 'Anyone with link' },
-            { id: 'protected', icon: Lock, label: 'Password', desc: 'Requires key' },
-            { id: 'private', icon: Users, label: 'Invite Only', desc: 'Specific emails' }
-          ].map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setSettings({ ...settings, privacy: mode.id })}
-              className={`flex flex-col items-center p-4 rounded-xl border transition-all ${
-                settings.privacy === mode.id 
-                  ? 'bg-indigo-500/20 border-indigo-500 text-white' 
-                  : 'bg-black/20 border-white/5 text-slate-500 hover:bg-white/5'
-              }`}
-            >
-              <mode.icon size={20} className="mb-2" />
-              <span className="text-sm font-bold">{mode.label}</span>
-              <span className="text-[10px] opacity-60">{mode.desc}</span>
-            </button>
-          ))}
+      <div className="space-y-6">
+        
+        {/* 1. Privacy Access */}
+        <div>
+          <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Access Control</label>
+          <div className="grid grid-cols-3 gap-3">
+            {['public', 'private', 'protected'].map((type) => (
+              <button
+                key={type}
+                onClick={() => handleChange('privacy', type)}
+                className={`py-2 px-4 rounded-lg text-sm font-medium border transition-all capitalize ${
+                  localSettings.privacy === type
+                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
+                    : `${isDark ? 'bg-white/5 border-gray-600 text-gray-300 hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Password Input (Conditional) */}
-      {settings.privacy === 'protected' && (
-        <motion.div 
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="space-y-2"
-        >
-          <label className="text-xs font-mono text-slate-400 uppercase">Access Key (Password)</label>
-          <div className="relative">
-            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input 
-              type="text" 
-              value={settings.password || ''}
-              onChange={(e) => setSettings({ ...settings, password: e.target.value })}
-              placeholder="Set a secure password..."
-              className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:border-indigo-500 focus:outline-none transition-colors"
+        {/* Password Field (Conditional) */}
+        {localSettings.privacy === 'protected' && (
+          <div className="animate-fadeIn">
+            <label className={`block font-semibold mb-2 flex items-center gap-2 ${currentTheme.text}`}>
+              <Lock size={16} className="text-amber-500" /> Assessment Password
+            </label>
+            <input
+              type="text"
+              value={localSettings.password || ''}
+              onChange={(e) => handleChange('password', e.target.value)}
+              placeholder="Set a secure password"
+              className={`w-full p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none ${currentTheme.input}`}
             />
           </div>
-        </motion.div>
-      )}
+        )}
 
-      {/* Expiration (TTL) */}
-      <div className="space-y-2 pt-4 border-t border-white/5">
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-mono text-slate-400 uppercase flex items-center gap-2">
-            <Clock size={14} /> Auto-Expiration (TTL)
+        {/* 2. Proctoring Level (NEW) */}
+        <div>
+          <label className={`block font-semibold mb-2 flex items-center gap-2 ${currentTheme.text}`}>
+            <Eye size={16} className="text-indigo-500" /> Monitoring Level
           </label>
-          <button 
-            onClick={() => setSettings({ ...settings, expiresAt: '' })}
-            className="text-[10px] text-red-400 hover:underline"
+          <select
+            value={localSettings.proctoring || 'none'}
+            onChange={(e) => handleChange('proctoring', e.target.value)}
+            className={`w-full p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer ${currentTheme.input}`}
           >
-            Clear
-          </button>
+            <option value="none">No Monitoring (Standard Form)</option>
+            <option value="basic">Basic Integrity (Tab Switch + Copy/Paste)</option>
+            <option value="full">Full AI Proctor (Face + Gaze + Basic)</option>
+          </select>
+          
+          {localSettings.proctoring === 'full' && (
+             <p className="text-xs text-amber-500 mt-2 flex items-center gap-1">
+               <AlertTriangle size={12} /> Requires webcam access.
+             </p>
+          )}
         </div>
-        <div className="relative">
-          <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input 
-            type="datetime-local" 
-            value={settings.expiresAt ? new Date(settings.expiresAt).toISOString().slice(0, 16) : ''}
-            onChange={(e) => setSettings({ ...settings, expiresAt: e.target.value })}
-            className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:border-indigo-500 focus:outline-none [color-scheme:dark]"
+
+        {/* 3. Expiration */}
+        <div>
+          <label className={`block font-semibold mb-2 flex items-center gap-2 ${currentTheme.text}`}>
+            <Clock size={16} className="text-blue-500" /> Expiration Date (TTL)
+          </label>
+          <input
+            type="datetime-local"
+            value={localSettings.expiresAt ? new Date(localSettings.expiresAt).toISOString().slice(0, 16) : ''}
+            onChange={(e) => handleChange('expiresAt', e.target.value)}
+            className={`w-full p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none ${currentTheme.input} [color-scheme:dark]`}
           />
         </div>
-        <p className="text-[10px] text-slate-600">
-          Form will automatically lock after this time.
-        </p>
+
+        {/* 4. Limit Response */}
+        <div className="flex items-center justify-between pt-2">
+          <span className={`font-medium flex items-center gap-2 ${currentTheme.text}`}>
+            <Users size={16} className="text-purple-500" /> Limit to 1 Response
+          </span>
+          <button
+            onClick={() => handleChange('limitOneResponse', !localSettings.limitOneResponse)}
+            className={`w-12 h-6 rounded-full transition-colors relative ${
+              localSettings.limitOneResponse ? 'bg-emerald-500' : 'bg-gray-600'
+            }`}
+          >
+            <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
+              localSettings.limitOneResponse ? 'translate-x-6' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
       </div>
     </div>
   );
-}
+};
+
+export default SecuritySettings;

@@ -22,7 +22,7 @@ export default function DashboardPage() {
       if (!user) return;
       try {
         // Fetching data using the established repository link
-        const response = await api.get(`/forms/user/${user.id}`);
+        const response = await api.get(`/api/forms/user/${user.id}`);
         setForms(response.data);
         setError(null);
       } catch (err) {

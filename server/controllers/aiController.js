@@ -2,7 +2,10 @@
 import Groq from 'groq-sdk';
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
-import pdf from 'pdf-parse/lib/pdf-parse.js'; // Ensure you have installed pdf-parse
+import { createRequire } from 'module'; // 1. Import createRequire
+
+const require = createRequire(import.meta.url); // 2. Construct the require function
+const pdf = require('pdf-parse'); // 3. Require pdf-parse (CommonJS compatible)
 
 // --- SHARED SYSTEM PROMPT ---
 const getSystemPrompt = () => {

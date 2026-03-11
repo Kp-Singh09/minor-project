@@ -15,14 +15,21 @@ const SwitchBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'Do you agree?');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'Do you agree?');
     } else {
       setText('Do you agree?');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'Switch', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Switch', 
+      content: {
+        question: text 
+      }
+    });
   };
 
   return (

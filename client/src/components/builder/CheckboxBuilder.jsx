@@ -17,9 +17,10 @@ const CheckboxBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setQuestionText(initialData.text || 'Your Question Here');
-      setOptions(initialData.options || ['Option 1', 'Option 2']);
-      setCorrectAnswers(initialData.correctAnswers || []);
+      const data = initialData.content || initialData;
+      setQuestionText(data.question || data.text || 'Your Question Here');
+      setOptions(data.options || ['Option 1', 'Option 2']);
+      setCorrectAnswers(data.correctAnswers || []);
     } else {
       setQuestionText('Your Question Here');
     }
@@ -50,11 +51,13 @@ const CheckboxBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   const handleSave = () => {
     onSave({ 
-      ...initialData, 
+      _id: initialData?._id,
       type: 'Checkbox', 
-      text: questionText, 
-      options, 
-      correctAnswers 
+      content: {
+        question: questionText, 
+        options, 
+        correctAnswers 
+      }
     });
   };
 

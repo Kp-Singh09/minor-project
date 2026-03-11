@@ -18,7 +18,8 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setImagePreview(initialData.image || '');
+      const data = initialData.content || initialData;
+      setImagePreview(data.image || '');
     }
   }, [initialData]);
 
@@ -57,7 +58,13 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         return;
     }
 
-    onSave({ ...initialData, type: 'Banner', image: imageUrl });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Banner', 
+      content: {
+        image: imageUrl 
+      }
+    });
   };
 
   return (

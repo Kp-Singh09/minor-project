@@ -18,18 +18,17 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
     input: 'bg-white border-gray-300 text-gray-900' 
   };
 
-  // Helper to detect ANY dark theme (Dark, Navy Pop, Futuristic, etc.)
   const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
-      setCategories(initialData.categories);
-      setItems(initialData.items);
-      setImagePreview(initialData.image || '');
+      const data = initialData.content || initialData;
+      setCategories(data.categories || ['Category 1', 'Category 2']);
+      setItems(data.items || [{ text: '', category: 'Category 1' }]);
+      setImagePreview(data.image || '');
     }
   }, [initialData]);
 
-  // ... (Keep existing handlers: handleCategoryChange, addCategory, etc.)
   const handleCategoryChange = (index, value) => {
     const oldCategoryName = categories[index];
     const newCategories = [...categories];
@@ -98,7 +97,15 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
             return; 
         }
     }
-    onSave({ type: 'Categorize', categories, items, image: imageUrl });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Categorize', 
+      content: {
+        categories, 
+        items, 
+        image: imageUrl 
+      }
+    });
   };
 
   return (
@@ -194,7 +201,6 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
                       {/* Item Text Input */}
                       <input
                         type="text"
-                        // FIX: Use currentTheme.input so the background matches the theme
                         className={`flex-grow min-w-0 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
                         placeholder="Item content..."
                         value={item.text}
@@ -204,7 +210,6 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
                       {/* Small Number Dropdown */}
                       <div className="flex-shrink-0 relative group" title="Select Category Number">
                         <select
-                            // FIX: Use currentTheme.input
                             className={`w-16 p-2 pr-1 rounded-md font-bold text-center focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer appearance-none ${currentTheme.input}`}
                             value={item.category}
                             onChange={(e) => handleItemChange(index, 'category', e.target.value)}
@@ -241,7 +246,6 @@ const CategorizeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         >
           Cancel
         </button>
-        {/* --- STANDARDIZED BUTTON --- */}
         <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
       </div>
     </div>

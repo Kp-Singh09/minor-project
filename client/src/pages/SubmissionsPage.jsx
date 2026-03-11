@@ -1,108 +1,97 @@
-// client/src/pages/SubmissionDetail.jsx
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { BrainCircuit, CheckCircle, Loader2, Award, Download, ArrowLeft } from 'lucide-react';
-import api from '../api/axiosConfig';
-import ReportTemplate from '../components/Analytics/ReportTemplate';
+// client/src/pages/SubmissionsPage.jsx
+import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
+import axios from '../api/axiosConfig';
+import { Loader2, FileText, Calendar, ChevronRight, Award, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-export default function SubmissionDetail() {
-  const { id } = useParams();
-  const [data, setData] = useState(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
+export default function SubmissionsPage() {
+  const { userId, isLoaded } = useAuth();
+  const navigate = useNavigate();
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDetail = async () => {
+    const fetchSubmissions = async () => {
+      if (!userId) return;
       try {
-        const res = await api.get(`/responses/${id}`);
-        setData(res.data);
-      } catch (err) { console.error(err); }
+        const res = await axios.get(`/api/responses/user/${userId}`);
+        setSubmissions(res.data);
+      } catch (err) {
+        console.error("Failed to fetch submissions", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchDetail();
-  }, [id]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+    if (isLoaded) fetchSubmissions();
+  }, [isLoaded, userId]);
 
-  if (!data) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>;
+  if (loading) return (
+    <div className="h-screen w-full flex items-center justify-center bg-slate-950">
+      <Loader2 className="animate-spin text-indigo-500" size={48} />
+    </div>
+  );
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 relative">
-      {/* HIDDEN REPORT FOR PRINTING */}
-      <ReportTemplate data={data} />
+    <div className="max-w-5xl mx-auto p-6 min-h-screen">
+      <h1 className="text-3xl font-bold text-white mb-2">My Attempts</h1>
+      <p className="text-slate-400 mb-8">History of your completed assessments.</p>
 
-      {/* UI HEADER */}
-      <header className="flex justify-between items-end mb-12 print:hidden">
-        <div>
-          <button onClick={() => window.history.back()} className="text-white/20 hover:text-white mb-4 flex items-center gap-2 transition-colors">
-            <ArrowLeft size={16} /> Back to Feed
-          </button>
-          <h2 className="text-5xl font-extrabold tracking-tighter text-white">Analysis Terminal</h2>
-          <p className="text-white/40 font-mono text-[10px] mt-2 uppercase tracking-widest">Secure Handshake: {id}</p>
+      {submissions.length === 0 ? (
+        <div className="text-center py-20 border border-white/10 rounded-2xl bg-white/5">
+          <FileText className="mx-auto text-slate-500 mb-4" size={48} />
+          <h3 className="text-xl text-white font-semibold">No submissions yet</h3>
+          <p className="text-slate-400 mt-2">Complete an assessment to see your results here.</p>
         </div>
-
-        <button 
-          onClick={handlePrint}
-          className="p-4 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all flex items-center gap-2"
-        >
-          <Download size={18} /> <span className="text-xs font-bold uppercase tracking-widest">Export PDF</span>
-        </button>
-      </header>
-
-      {/* ANALYSIS CARDS */}
-      <div className="grid gap-8 print:hidden">
-        <div className="glass-card p-12 border-white/5">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest mb-1">Participant</p>
-              <h3 className="text-3xl font-bold text-white">{data.respondentName}</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest mb-1">Status</p>
-              <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold border border-green-500/20">
-                VERIFIED
-              </span>
-            </div>
-          </div>
-
-          <div className="h-px bg-white/5 w-full mb-8" />
-
-          <div className="flex items-center gap-8">
-            <div className="flex flex-col">
-              <span className="text-5xl font-black text-indigo-500">{data.score}%</span>
-              <span className="text-[10px] font-mono text-white/20 uppercase mt-2">Accuracy Rate</span>
-            </div>
-            <div className="w-px h-16 bg-white/5" />
-            <div className="flex flex-col">
-              <span className="text-5xl font-black text-white">{data.violations?.length || 0}</span>
-              <span className="text-[10px] font-mono text-white/20 uppercase mt-2">Integrity Flags</span>
-            </div>
-          </div>
-        </div>
-
-        {/* AI EVALUATION SECTION */}
-        <div className="glass-card p-1 border-indigo-500/20 bg-indigo-500/5">
-          <div className="p-12">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-400">
-                <BrainCircuit size={24} />
+      ) : (
+        <div className="grid gap-4">
+          {submissions.map((sub, index) => (
+            <motion.div 
+              key={sub._id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              onClick={() => navigate(`/submission/${sub._id}`)} // Navigate to Detail View
+              className="group cursor-pointer glass-card p-6 border border-white/10 bg-white/5 hover:bg-white/10 transition-all rounded-xl flex justify-between items-center"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-indigo-500/20 text-indigo-400">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
+                    {sub.formId?.title || "Untitled Assessment"}
+                  </h3>
+                  <div className="flex items-center gap-4 text-xs text-slate-400 mt-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} /> {new Date(sub.submittedAt).toLocaleDateString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {new Date(sub.submittedAt).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-white">Neural Feedback</h3>
-            </div>
-            <p className="text-lg text-white/70 leading-relaxed italic mb-8">
-              "{data.aiFeedback || 'Semantic evaluation pending. Initialize AI to analyze the depth of responses.'}"
-            </p>
-            {!data.aiFeedback && (
-              <button 
-                className="w-full py-4 rounded-xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
-              >
-                <BrainCircuit size={16} /> Run Neural Assessment
-              </button>
-            )}
-          </div>
+
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Score</p>
+                  <p className={`text-xl font-bold ${
+                    (sub.score / sub.totalMarks) >= 0.5 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {sub.score} <span className="text-sm text-slate-500">/ {sub.totalMarks}</span>
+                  </p>
+                </div>
+                <div className="p-2 rounded-full border border-white/10 text-slate-400 group-hover:bg-white group-hover:text-black transition-all">
+                  <ChevronRight size={20} />
+                </div>
+              </div>
+            </motion.div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

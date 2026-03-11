@@ -7,7 +7,7 @@ const getBaseURL = () => {
   if (envUrl && envUrl.trim() !== "") {
     return envUrl;
   }
-  return 'http://localhost:5000/api';
+  return 'http://localhost:5000';
 };
 
 const api = axios.create({

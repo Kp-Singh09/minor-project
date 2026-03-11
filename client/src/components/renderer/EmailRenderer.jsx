@@ -1,18 +1,18 @@
-// client/src/components/renderer/EmailRenderer.jsx
-import React from 'react';
+const EmailRenderer = ({ question, onAnswerChange, theme, savedAnswer }) => {
+  const content = question.content || {};
+  const text = content.question || content.text || 'Email Address';
 
-const EmailRenderer = ({ question, onAnswerChange, theme }) => {
   return (
-    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg}`}>
-      <label className={`block text-lg font-semibold mb-3 ${theme.text}`}>
-        {question.text}
-        <span className="text-red-500 ml-1">*</span>
+    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg} border-white/10`}>
+      <label className={`block font-semibold text-lg mb-2 ${theme.text}`}>
+        {text}
       </label>
       <input
         type="email"
-        onChange={(e) => onAnswerChange(question._id, e.target.value)}
-        className={`w-full p-3 border rounded-md ${theme.input} focus:outline-none focus:ring-2`}
+        className={`w-full p-3 rounded-md bg-black/20 border border-white/10 focus:border-indigo-500 focus:outline-none ${theme.text}`}
         placeholder="name@example.com"
+        value={savedAnswer || ''}
+        onChange={(e) => onAnswerChange(question._id, e.target.value)}
       />
     </div>
   );

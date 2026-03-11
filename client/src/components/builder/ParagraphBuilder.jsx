@@ -15,14 +15,21 @@ const ParagraphBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'New paragraph text.');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'New paragraph text.');
     } else {
       setText('New paragraph text.');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'Paragraph', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Paragraph', 
+      content: {
+        question: text // Storing paragraph text in 'question' field
+      }
+    });
   };
 
   return (

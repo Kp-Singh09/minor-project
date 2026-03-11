@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Send, Loader2, GitBranch } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Send, Loader2, GitBranch, ShieldAlert, Copy } from 'lucide-react';
 import { GlassButton } from '../components/ui/GlassButton';
 import axios from '../api/axiosConfig';
-import { useAuth } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react'; // <--- FIXED IMPORT
 import toast from 'react-hot-toast';
+import { themes } from '../themes';
 
 // Import the Free AI Proctor
 import GazeMonitor from '../components/Proctoring/GazeMonitor';
@@ -24,10 +25,16 @@ import ComprehensionRenderer from '../components/renderer/ComprehensionRenderer'
 import DropdownRenderer from '../components/renderer/DropdownRenderer';
 import CheckboxRenderer from '../components/renderer/CheckboxRenderer';
 import PictureChoiceRenderer from '../components/renderer/PictureChoiceRenderer';
+import BannerRenderer from '../components/renderer/BannerRenderer';
+import HeadingRenderer from '../components/renderer/HeadingRenderer';
+import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
+import SwitchRenderer from '../components/renderer/SwitchRenderer';
+import EmailRenderer from '../components/renderer/EmailRenderer';
 
 export default function FormRenderer() {
   const { formId } = useParams();
-  const { user, isLoaded } = useAuth();
+  const { user, isLoaded } = useUser(); // <--- FIXED: useUser() gets the user object
+  const { userId } = useAuth();         // <--- FIXED: useAuth() gets the ID
   const navigate = useNavigate();
 
   const [form, setForm] = useState(null);
@@ -41,10 +48,10 @@ export default function FormRenderer() {
   const [isLocked, setIsLocked] = useState(false);
   const [authError, setAuthError] = useState('');
   
-  // History stack to track jumps (so "Back" button works correctly after a jump)
+  // History stack to track jumps
   const [historyStack, setHistoryStack] = useState([0]);
 
-  // 1. Fetch Form (Enhanced for Security)
+  // 1. Fetch Form
   useEffect(() => {
     fetchForm();
   }, [formId]);
@@ -52,17 +59,14 @@ export default function FormRenderer() {
   const fetchForm = async (password = null) => {
     try {
       setAuthError('');
-      // Use POST if sending a password, otherwise standard GET
       const config = password 
         ? { method: 'post', url: `/api/forms/${formId}/access`, data: { password } }
         : { method: 'get', url: `/api/forms/${formId}` };
 
       const res = await axios(config);
 
-      // Check if the backend returned a "Locked" payload
       if (res.data.isLocked) {
         setIsLocked(true);
-        // Even if locked, we set basic form data (like title) if available
         setForm(res.data);
       } else {
         setIsLocked(false);
@@ -71,7 +75,7 @@ export default function FormRenderer() {
     } catch (err) {
       if (err.response?.status === 410) {
         toast.error("This assessment has expired.");
-        navigate('/dashboard'); // Or show an expiration screen
+        navigate('/dashboard'); 
       } else {
         console.error(err);
         toast.error("Access Denied or Load Failed");
@@ -87,38 +91,80 @@ export default function FormRenderer() {
     fetchForm(password);
   };
 
-  // 2. Proctoring Handler
+  // 2. Proctoring Logic (Centralized)
   const handleViolation = (type) => {
     if (!loading && form && !isLocked) {
       setIntegrityFlags(prev => [...prev, { type, timestamp: new Date() }]);
+      
+      // Visual Feedback for Basic Violations
+      if (type.includes("Tab") || type.includes("Copy")) {
+         toast.custom((t) => (
+            <div className="bg-rose-500 text-white px-4 py-3 rounded-xl flex items-center gap-3 shadow-2xl animate-bounce">
+              <ShieldAlert size={20} />
+              <div>
+                <span className="font-bold text-sm block">Security Warning</span>
+                <span className="text-xs">{type} Recorded</span>
+              </div>
+            </div>
+         ), { duration: 3000, id: 'violation-toast' });
+      }
     }
   };
 
+  // --- BASIC MONITORING (Tab Switch & Copy/Paste) ---
+  useEffect(() => {
+    if (!form || loading || isLocked) return;
+
+    const level = form.settings?.proctoring || 'none';
+    if (level === 'none') return; // Exit if no monitoring
+
+    // 1. Tab Switching
+    const handleBlur = () => handleViolation("Tab Switch Detected");
+    
+    // 2. Copy/Paste
+    const handleCopy = (e) => {
+        e.preventDefault();
+        handleViolation("Copy Action Blocked");
+    };
+    const handlePaste = (e) => {
+        e.preventDefault();
+        handleViolation("Paste Action Blocked");
+    };
+
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("cut", handleCopy);
+
+    return () => {
+        window.removeEventListener("blur", handleBlur);
+        document.removeEventListener("copy", handleCopy);
+        document.removeEventListener("paste", handlePaste);
+        document.removeEventListener("cut", handleCopy);
+    };
+  }, [form, loading, isLocked]);
+
+
   // 3. Answer Handler
-  const handleAnswer = (val) => {
-    if (!form) return;
-    const questionId = form.questions[currentStep]._id;
+  const handleAnswer = (questionId, val) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: { questionId, answer: val }
     }));
   };
 
-  // 4. THE LOGIC ENGINE -------------------------
+  // 4. THE LOGIC ENGINE 
   const calculateNextStep = () => {
     const currentQ = form.questions[currentStep];
     const currentAnsObj = answers[currentQ._id];
     
-    // If no logic defined, just go next
     if (!currentQ.logic || currentQ.logic.length === 0) {
       return currentStep + 1;
     }
 
     const userAnswer = currentAnsObj ? currentAnsObj.answer : null;
 
-    // Find the first matching rule
     const matchedRule = currentQ.logic.find(rule => {
-      // Simple string equality check. Can be expanded for regex/numbers later.
       return rule.condition === userAnswer;
     });
 
@@ -127,43 +173,30 @@ export default function FormRenderer() {
         return 'END';
       }
       if (matchedRule.action === 'jump_to' && matchedRule.destination) {
-        // Find the index of the destination question ID
         const targetIndex = form.questions.findIndex(q => q._id === matchedRule.destination);
         if (targetIndex !== -1) return targetIndex;
       }
     }
 
-    // Default Fallback
     return currentStep + 1;
   };
-  // ---------------------------------------------
 
   const paginate = (newDirection) => {
     if (newDirection > 0) {
-      // Validate Required
-      const qId = form.questions[currentStep]._id;
-      if (form.questions[currentStep].required && (!answers[qId] || !answers[qId].answer)) {
-        return toast.error("Please answer to proceed.");
-      }
-
       const nextStepIndex = calculateNextStep();
 
       if (nextStepIndex === 'END') {
-        handleSubmit(); // Early exit
+        handleSubmit(); 
       } else if (nextStepIndex < form.questions.length) {
         setDirection(1);
-        setHistoryStack(prev => [...prev, nextStepIndex]); // Push to stack
+        setHistoryStack(prev => [...prev, nextStepIndex]); 
         setCurrentStep(nextStepIndex);
-      } else {
-        // End of form reached naturally
-        // Show submit button logic handled in render
       }
     } else {
-      // Handle Back Button using History Stack
       if (historyStack.length > 1) {
         const newStack = [...historyStack];
-        newStack.pop(); // Remove current
-        const prevStepIndex = newStack[newStack.length - 1]; // Peek previous
+        newStack.pop(); 
+        const prevStepIndex = newStack[newStack.length - 1]; 
         
         setDirection(-1);
         setHistoryStack(newStack);
@@ -173,7 +206,7 @@ export default function FormRenderer() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return toast.error("User identity required.");
+    if (!user) return toast.error("User identity required. Please log in.");
     
     try {
       const payload = {
@@ -192,14 +225,20 @@ export default function FormRenderer() {
     }
   };
 
-  const renderQuestion = (question) => {
-    const commonProps = {
-      data: question,
-      onAnswer: handleAnswer,
-      savedAnswer: answers[question._id]?.answer
+  const renderQuestion = (q) => {
+    const themeKey = form?.theme || 'Light';
+    const currentTheme = themes?.[themeKey] || themes?.Light || { 
+        cardBg: 'bg-white', text: 'text-black', secondaryText: 'text-gray-500' 
     };
-    // Dynamic component rendering...
-    switch (question.type) {
+
+    const commonProps = {
+      question: q,
+      onAnswerChange: handleAnswer,
+      theme: currentTheme,
+      savedAnswer: answers[q._id]?.answer
+    };
+
+    switch (q.type) {
       case 'MultipleChoice': return <MultipleChoiceRenderer {...commonProps} />;
       case 'ShortAnswer': return <ShortAnswerRenderer {...commonProps} />;
       case 'LongAnswer': return <LongAnswerRenderer {...commonProps} />;
@@ -209,7 +248,12 @@ export default function FormRenderer() {
       case 'Dropdown': return <DropdownRenderer {...commonProps} />;
       case 'Checkbox': return <CheckboxRenderer {...commonProps} />;
       case 'PictureChoice': return <PictureChoiceRenderer {...commonProps} />;
-      default: return <div className="text-white/50">Unsupported Type</div>;
+      case 'Banner': return <BannerRenderer {...commonProps} />;
+      case 'Heading': return <HeadingRenderer {...commonProps} />;
+      case 'Paragraph': return <ParagraphRenderer {...commonProps} />;
+      case 'Switch': return <SwitchRenderer {...commonProps} />;
+      case 'Email': return <EmailRenderer {...commonProps} />;
+      default: return <div className="text-white/50">Unknown Question Type: {q.type}</div>;
     }
   };
 
@@ -219,7 +263,6 @@ export default function FormRenderer() {
     </div>
   );
 
-  // --- RENDER SECURITY GATE IF LOCKED ---
   if (isLocked) {
     return (
       <AccessGate 
@@ -231,9 +274,12 @@ export default function FormRenderer() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 overflow-hidden">
-      {/* Activate The Proctor only if unlocked */}
-      <GazeMonitor isActive={true} onViolation={handleViolation} />
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
+      
+      {/* ONLY RENDER CAMERA IF FULL MONITORING IS SELECTED */}
+      {form.settings?.proctoring === 'full' && (
+        <GazeMonitor isActive={true} onViolation={handleViolation} />
+      )}
 
       {/* Progress Bar */}
       <div className="fixed top-12 w-full max-w-md px-6 z-40">
@@ -262,12 +308,13 @@ export default function FormRenderer() {
             transition={{ duration: 0.4, ease: "circOut" }}
             className="w-full"
           >
-             <div className="glass-card p-8 md:p-12 border-white/10 shadow-2xl backdrop-blur-2xl">
+             <div className={`p-8 md:p-12 shadow-2xl backdrop-blur-2xl rounded-xl ${
+                 themes?.[form.theme]?.cardBg || 'bg-white' 
+             }`}>
                 <div className="flex justify-between items-start mb-6">
                   <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-xs uppercase tracking-widest">
                     {form.questions[currentStep].type}
                   </span>
-                  {/* Logic Indicator */}
                   {form.questions[currentStep].logic?.length > 0 && (
                     <div className="flex items-center gap-1 text-xs text-amber-400 font-mono" title="Branching Active">
                       <GitBranch size={14} />

@@ -1,12 +1,13 @@
-// client/src/components/renderer/ParagraphRenderer.jsx
-import React from 'react';
+const ParagraphRenderer = ({ question, theme }) => {
+  const content = question.content || {};
+  const text = content.question || content.text || '';
 
-const ParagraphRenderer = ({ text, theme }) => {
   return (
-    <p className={`text-base ${theme.secondaryText}`}>
-      {text}
-    </p>
+    <div className={`p-4 rounded-lg ${theme.cardBg}`}>
+      <p className={`text-lg leading-relaxed whitespace-pre-wrap ${theme.text}`}>
+        {text}
+      </p>
+    </div>
   );
 };
-
 export default ParagraphRenderer;

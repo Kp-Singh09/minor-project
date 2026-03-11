@@ -15,14 +15,21 @@ const ShortAnswerBuilder = ({ onSave, onCancel, initialData = null, theme }) => 
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'Short Answer Question');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'Short Answer Question');
     } else {
       setText('Short Answer Question');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'ShortAnswer', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'ShortAnswer', 
+      content: {
+        question: text 
+      }
+    });
   };
 
   return (

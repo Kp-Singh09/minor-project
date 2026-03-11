@@ -6,7 +6,6 @@ const DropdownBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   const [options, setOptions] = useState(['Option 1', 'Option 2']);
   const [correctAnswer, setCorrectAnswer] = useState('Option 1');
 
-  // Default theme fallback
   const currentTheme = theme || { 
     name: 'Light',
     cardBg: 'bg-white', 
@@ -19,9 +18,10 @@ const DropdownBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setQuestionText(initialData.text || 'Your Question Here');
-      setOptions(initialData.options || ['Option 1', 'Option 2']);
-      setCorrectAnswer(initialData.correctAnswer || initialData.options[0]);
+      const data = initialData.content || initialData;
+      setQuestionText(data.question || data.text || 'Your Question Here');
+      setOptions(data.options || ['Option 1', 'Option 2']);
+      setCorrectAnswer(data.correctAnswer || data.options?.[0]);
     } else {
       setQuestionText('Your Question Here');
     }
@@ -46,11 +46,13 @@ const DropdownBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   const handleSave = () => {
     onSave({ 
-      ...initialData, 
+      _id: initialData?._id,
       type: 'Dropdown', 
-      text: questionText, 
-      options, 
-      correctAnswer 
+      content: {
+        question: questionText, 
+        options, 
+        correctAnswer 
+      }
     });
   };
 

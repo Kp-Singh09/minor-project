@@ -22,7 +22,7 @@ import FormEditor from './pages/FormEditor';
 import MyFormsPage from './pages/MyFormsPage'; 
 import AnalyticsPage from './pages/AnalyticsPage';
 import SubmissionsPage from './pages/SubmissionsPage';
-
+import SubmissionDetail from './pages/SubmissionDetail';
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
@@ -60,7 +60,7 @@ const router = createBrowserRouter([
           { path: "/my-forms", element: <MyFormsPage /> },
           { path: "/analytics", element: <AnalyticsPage /> },
           { path: "/submissions", element: <SubmissionsPage /> },
-          
+          { path: "/submission/:responseId", element: <SubmissionDetail /> },
           // UPDATED: Pointing to the logic-rich Page component
           { path: "/editor/new", element: <FormEditor /> },
           { path: "/editor/:formId", element: <FormEditor /> },

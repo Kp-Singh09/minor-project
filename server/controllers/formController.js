@@ -1,6 +1,7 @@
 // server/controllers/formController.js
 import Form from '../models/Form.js';
 import FormVersion from '../models/FormVersion.js';
+import Question from '../models/Question.js'; // <--- NEW IMPORT REQUIRED
 
 // --- CREATE FORM ---
 export const createForm = async (req, res) => {
@@ -9,11 +10,12 @@ export const createForm = async (req, res) => {
     
     const newForm = new Form({
       title,
-      creatorId: userId, // Ensure frontend sends this as userId
+      creatorId: userId,
       username: username || 'Anonymous',
       questions: questions || [],
       settings: settings || {},
-      version: 1
+      version: 1,
+      collaborators: []
     });
 
     const savedForm = await newForm.save();
@@ -36,40 +38,29 @@ export const createForm = async (req, res) => {
   }
 };
 
-// --- GET FORM BY ID (SECURE + RBAC) ---
+// --- GET FORM BY ID ---
 export const getFormById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, userId } = req.body; // Check body for credentials
+    const { password, userId } = req.body; 
 
-    // 1. Fetch Form
     const form = await Form.findById(id)
       .select('+settings.password') 
       .populate('questions');
 
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
-    // 2. RBAC Bypass: If User is Creator or Collaborator, return full access immediately
-    const isCreator = form.creatorId === userId;
-    // Note: In a real app with Clerk, you might check email against form.collaborators here too
-    // For now, if userId matches creator, we bypass. 
-    // Ideally, pass userEmail in body to check collaborator list.
-    
-    if (isCreator) {
+    // Creator Bypass
+    if (form.creatorId === userId) {
         return res.status(200).json(form);
     }
 
-    // 3. Public/Respondent Access Checks
-    
-    // Check Expiration (TTL)
+    // Expiration Check
     if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
-      return res.status(410).json({ 
-        message: 'This form has expired.',
-        isExpired: true 
-      });
+      return res.status(410).json({ message: 'Form expired.', isExpired: true });
     }
 
-    // Check Password Protection
+    // Password Check
     if (form.settings?.privacy === 'protected') {
       if (!password || password !== form.settings.password) {
         return res.status(200).json({
@@ -82,19 +73,17 @@ export const getFormById = async (req, res) => {
       }
     }
 
-    // Return Form (Mask sensitive settings if needed)
     const formPayload = form.toObject();
     if (formPayload.settings?.password) delete formPayload.settings.password;
 
     res.status(200).json(formPayload);
 
   } catch (error) {
-    console.error("Fetch Error:", error);
     res.status(500).json({ message: 'Server Error', error });
   }
 };
 
-// --- UPDATE FORM (RBAC Protected) ---
+// --- UPDATE FORM METADATA ---
 export const updateForm = async (req, res) => {
   try {
     const { id } = req.params;
@@ -103,26 +92,7 @@ export const updateForm = async (req, res) => {
     const form = await Form.findById(id);
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
-    // TODO: Add strict RBAC check here if userId is provided in body
-    // if (form.creatorId !== req.body.userId && !isCollaborator) return res.status(403)...
-
-    const newVersion = (form.version || 1) + 1;
-    updateData.version = newVersion;
-
     const updatedForm = await Form.findByIdAndUpdate(id, updateData, { new: true });
-
-    // Snapshot
-    await FormVersion.create({
-      formId: form._id,
-      versionNumber: newVersion,
-      snapshot: {
-        title: updatedForm.title,
-        questions: updatedForm.questions,
-        settings: updatedForm.settings
-      },
-      changeLog: 'Update via Editor'
-    });
-
     res.status(200).json(updatedForm);
   } catch (error) {
     res.status(500).json({ message: 'Error updating form', error });
@@ -134,6 +104,8 @@ export const deleteForm = async (req, res) => {
   try {
     const { id } = req.params;
     await Form.findByIdAndDelete(id);
+    // Optional: Delete associated questions too
+    // await Question.deleteMany({ formId: id });
     res.status(200).json({ message: 'Form deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting form', error });
@@ -144,9 +116,6 @@ export const deleteForm = async (req, res) => {
 export const getUserForms = async (req, res) => {
     try {
         const { userId } = req.params;
-        // Find forms where user is Creator OR Collaborator
-        // Note: This requires us to know the user's email for collaborator check
-        // For simple ID check:
         const forms = await Form.find({ creatorId: userId }).sort({ createdAt: -1 });
         res.status(200).json(forms);
     } catch (error) {
@@ -154,42 +123,107 @@ export const getUserForms = async (req, res) => {
     }
 };
 
-// --- COLLABORATION: ADD MEMBER ---
+// --- COLLABORATION ---
 export const addCollaborator = async (req, res) => {
     try {
         const { id } = req.params;
         const { email, role } = req.body;
-
         const form = await Form.findById(id);
         if (!form) return res.status(404).json({ message: 'Form not found' });
 
-        // Check for duplicate
-        const exists = form.collaborators.find(c => c.email === email);
-        if (exists) return res.status(400).json({ message: 'User already added' });
+        if (form.collaborators.find(c => c.email === email)) {
+            return res.status(400).json({ message: 'User already added' });
+        }
 
         form.collaborators.push({ email, role });
         await form.save();
-
         res.status(200).json(form.collaborators);
     } catch (error) {
         res.status(500).json({ message: 'Failed to add collaborator' });
     }
 };
 
-// --- COLLABORATION: REMOVE MEMBER ---
 export const removeCollaborator = async (req, res) => {
     try {
         const { id } = req.params;
-        const { email } = req.body; // or passed as query
-
+        const { email } = req.body; 
         const form = await Form.findById(id);
         if (!form) return res.status(404).json({ message: 'Form not found' });
 
         form.collaborators = form.collaborators.filter(c => c.email !== email);
         await form.save();
-
         res.status(200).json(form.collaborators);
     } catch (error) {
         res.status(500).json({ message: 'Failed to remove collaborator' });
+    }
+};
+
+// ==========================================
+// NEW: QUESTION MANAGEMENT (Fixes 404 Error)
+// ==========================================
+
+// POST /api/forms/:id/questions
+export const addQuestion = async (req, res) => {
+    try {
+        const { id } = req.params; // Form ID
+        const questionData = req.body; // Question Content
+
+        const form = await Form.findById(id);
+        if (!form) return res.status(404).json({ message: 'Form not found' });
+
+        // Create new Question
+        const newQuestion = new Question({
+            formId: id,
+            ...questionData
+        });
+        const savedQuestion = await newQuestion.save();
+
+        // Link to Form
+        form.questions.push(savedQuestion._id);
+        await form.save();
+
+        res.status(201).json(savedQuestion);
+    } catch (error) {
+        console.error("Add Question Error:", error);
+        res.status(500).json({ message: 'Failed to add question', error });
+    }
+};
+
+// PUT /api/forms/questions/:questionId
+export const updateQuestion = async (req, res) => {
+    try {
+        const { questionId } = req.params;
+        const updateData = req.body;
+
+        const updatedQuestion = await Question.findByIdAndUpdate(
+            questionId, 
+            updateData, 
+            { new: true }
+        );
+
+        if (!updatedQuestion) return res.status(404).json({ message: 'Question not found' });
+
+        res.status(200).json(updatedQuestion);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update question', error });
+    }
+};
+
+// DELETE /api/forms/:id/questions/:questionId
+export const deleteQuestion = async (req, res) => {
+    try {
+        const { id, questionId } = req.params;
+
+        // Remove from Question Collection
+        await Question.findByIdAndDelete(questionId);
+
+        // Remove reference from Form
+        await Form.findByIdAndUpdate(id, {
+            $pull: { questions: questionId }
+        });
+
+        res.status(200).json({ message: 'Question deleted' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete question', error });
     }
 };

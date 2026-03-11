@@ -18,22 +18,21 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
     input: 'bg-white border-gray-300 text-gray-900' 
   };
 
-  // Helper to detect ANY dark theme
   const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
-      setPassage(initialData.comprehensionPassage || '');
-      const initialMcqs = initialData.mcqs.map(mcq => ({
+      const data = initialData.content || initialData;
+      setPassage(data.comprehensionPassage || '');
+      const initialMcqs = (data.mcqs || []).map(mcq => ({
         ...mcq,
         correctAnswerIndex: mcq.options.indexOf(mcq.correctAnswer)
       }));
       setMcqs(initialMcqs);
-      setImagePreview(initialData.image || '');
+      setImagePreview(data.image || '');
     }
   }, [initialData]);
 
-  // ... (Keep existing handlers: handleMcqChange, handleOptionChange, etc.)
   const handleMcqChange = (index, field, value) => {
     const newMcqs = [...mcqs];
     newMcqs[index][field] = value;
@@ -106,17 +105,19 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
         return;
       }
     }
-    const questionData = {
+    onSave({
+      _id: initialData?._id,
       type: 'Comprehension',
-      comprehensionPassage: passage,
-      mcqs: mcqs.map(q => ({
-        questionText: q.questionText,
-        options: q.options,
-        correctAnswer: q.options[q.correctAnswerIndex]
-      })),
-      image: imageUrl,
-    };
-    onSave(questionData);
+      content: {
+        comprehensionPassage: passage,
+        mcqs: mcqs.map(q => ({
+            questionText: q.questionText,
+            options: q.options,
+            correctAnswer: q.options[q.correctAnswerIndex]
+        })),
+        image: imageUrl,
+      }
+    });
   };
 
   return (
@@ -161,7 +162,6 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
       <div className="mt-6">
         <h4 className={`font-semibold text-lg mb-4 ${currentTheme.text}`}>Multiple Choice Questions</h4>
         {mcqs.map((mcq, index) => (
-          // FIX: Use isDark to determine background of the MCQ card
           <div key={index} className={`p-4 rounded-md mb-4 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
             <input
               type="text"
@@ -214,7 +214,6 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
         >
           Cancel
         </button>
-        {/* --- STANDARDIZED BUTTON --- */}
         <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
       </div>
     </div>

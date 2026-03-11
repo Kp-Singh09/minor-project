@@ -18,20 +18,19 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
     input: 'bg-white border-gray-300 text-gray-900' 
   };
 
-  // Helper to detect ANY dark theme
   const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
+        const data = initialData.content || initialData;
         if (passageRef.current) {
-            passageRef.current.innerText = initialData.passage;
+            passageRef.current.innerText = data.passage || '';
         }
-        setOptions(initialData.options || []);
-        setImagePreview(initialData.image || '');
+        setOptions(data.options || []);
+        setImagePreview(data.image || '');
     }
   }, [initialData]);
 
-  // ... (Keep existing handlers: handleMakeBlank, handleQuestionImageUpload, handleSave)
   const handleMakeBlank = () => {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.isCollapsed) {
@@ -93,7 +92,15 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
             return;
         }
     }
-    onSave({ type: 'Cloze', passage: finalPassage, options, image: imageUrl });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Cloze', 
+      content: {
+        passage: finalPassage, 
+        options, 
+        image: imageUrl 
+      }
+    });
   };
 
   return (
@@ -149,7 +156,6 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
       <div className="mb-6">
         <h4 className={`font-semibold text-lg mb-2 ${currentTheme.text}`}>Answer Options</h4>
         {options.length > 0 ? (
-          // FIX: Use isDark to set background properly
           <div className={`p-4 rounded-md border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
             <ul className="flex flex-wrap gap-2">
               {options.map((option, index) => (
@@ -169,7 +175,6 @@ const ClozeBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         >
           Cancel
         </button>
-        {/* --- STANDARDIZED BUTTON --- */}
         <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
       </div>
     </div>

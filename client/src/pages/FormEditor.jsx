@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from '../api/axiosConfig'; 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Trash2, Radio, MessageSquareText, Users } from 'lucide-react'; // Added Users
+import { Sparkles, Trash2, Radio, MessageSquareText, Users, Settings } from 'lucide-react'; // Added Settings
 import toast from 'react-hot-toast';
 
 // Socket
@@ -18,7 +18,8 @@ import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder';
 
 // Modals
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
-import TeamModal from '../components/FormCreator/TeamModal'; // NEW IMPORT
+import TeamModal from '../components/FormCreator/TeamModal'; 
+import SettingsModal from '../components/FormCreator/SettingsModal'; // NEW IMPORT
 
 const FormEditor = () => {
     const { formId } = useParams();
@@ -40,11 +41,12 @@ const FormEditor = () => {
     
     // Modal States
     const [aiModalOpen, setAiModalOpen] = useState(false);
-    const [teamModalOpen, setTeamModalOpen] = useState(false); // NEW STATE
+    const [teamModalOpen, setTeamModalOpen] = useState(false);
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false); // NEW STATE
     
     // Real-Time States
-    const [collaborators, setCollaborators] = useState([]); // Live socket users
-    const [teamList, setTeamList] = useState([]); // Database RBAC list
+    const [collaborators, setCollaborators] = useState([]);
+    const [teamList, setTeamList] = useState([]);
     const socketRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -54,11 +56,10 @@ const FormEditor = () => {
     useEffect(() => {
         const fetchForm = async () => {
             try {
-                // We pass userId in query so backend can verify Creator vs Collaborator logic if needed
                 const response = await axios.get(`/api/forms/${formId}?userId=${userId}`);
                 setForm(response.data);
                 setCurrentTitle(response.data.title);
-                setTeamList(response.data.collaborators || []); // Load stored team
+                setTeamList(response.data.collaborators || []);
             } catch (err) {
                 setError('Failed to fetch form data.');
                 toast.error("Could not load form");
@@ -69,7 +70,13 @@ const FormEditor = () => {
 
         if (isNewForm) {
             const defaultTitle = 'Untitled Assessment';
-            setForm({ title: defaultTitle, questions: [], headerImage: null, collaborators: [] });
+            setForm({ 
+                title: defaultTitle, 
+                questions: [], 
+                headerImage: null, 
+                collaborators: [],
+                settings: { proctoring: 'none', privacy: 'public' } // Default settings
+            });
             setCurrentTitle(defaultTitle);
             setLoading(false);
         } else {
@@ -172,6 +179,22 @@ const FormEditor = () => {
             if (form) setCurrentTitle(form.title);
         } finally {
             setIsEditingTitle(false);
+        }
+    };
+
+    // NEW: Handle Settings Update
+    const handleSettingsUpdate = async (newSettings) => {
+        // Optimistic update
+        setForm(prev => ({ ...prev, settings: newSettings }));
+        
+        if (!isNewForm) {
+            try {
+                await axios.put(`/api/forms/${formId}`, { settings: newSettings });
+                // Optional: Toast here might be too frequent if typing, handle in modal close or debounce
+            } catch (err) {
+                console.error("Settings Save Error", err);
+                toast.error("Failed to save settings");
+            }
         }
     };
 
@@ -313,13 +336,20 @@ const FormEditor = () => {
                 onSuccess={handleAiSuccess}
             />
 
-            {/* NEW TEAM MODAL */}
             <TeamModal 
                 isOpen={teamModalOpen}
                 onClose={() => setTeamModalOpen(false)}
                 formId={formId}
                 collaborators={teamList}
                 onUpdate={(newList) => setTeamList(newList)}
+            />
+
+            {/* NEW SETTINGS MODAL */}
+            <SettingsModal
+                isOpen={settingsModalOpen}
+                onClose={() => setSettingsModalOpen(false)}
+                settings={form.settings}
+                onUpdate={handleSettingsUpdate}
             />
 
             {/* Header Card */}
@@ -334,6 +364,16 @@ const FormEditor = () => {
                         </div>
                     )}
                     
+                    {/* Settings Button */}
+                    <button 
+                        onClick={() => setSettingsModalOpen(true)}
+                        disabled={isNewForm}
+                        className="flex items-center gap-1 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        title="Configure Monitoring"
+                    >
+                        <Settings size={12} /> Settings
+                    </button>
+
                     {/* Team Button */}
                     <button 
                         onClick={() => setTeamModalOpen(true)}

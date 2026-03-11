@@ -1,15 +1,16 @@
-// client/src/components/renderer/LongAnswerRenderer.jsx
-import React from 'react';
+const LongAnswerRenderer = ({ question, onAnswerChange, theme, savedAnswer }) => {
+  const content = question.content || {};
+  const text = content.question || content.text || 'Question';
 
-const LongAnswerRenderer = ({ question, onAnswerChange, theme }) => {
   return (
-    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg}`}>
-      <label className={`block text-lg font-semibold mb-3 ${theme.text}`}>{question.text}</label>
+    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg} border-white/10`}>
+      <p className={`font-semibold text-lg mb-4 ${theme.text}`}>{text}</p>
       <textarea
+        rows={5}
+        className={`w-full p-3 rounded-md bg-black/20 border border-white/10 focus:border-indigo-500 focus:outline-none ${theme.text}`}
+        placeholder="Type your detailed answer..."
+        value={savedAnswer || ''}
         onChange={(e) => onAnswerChange(question._id, e.target.value)}
-        className={`w-full p-3 border rounded-md ${theme.input} focus:outline-none focus:ring-2`}
-        placeholder="Type your answer here..."
-        rows="4"
       />
     </div>
   );

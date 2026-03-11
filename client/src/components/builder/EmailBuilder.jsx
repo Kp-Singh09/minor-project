@@ -15,14 +15,21 @@ const EmailBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'Email');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'Email');
     } else {
       setText('Email');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'Email', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Email', 
+      content: {
+        question: text 
+      }
+    });
   };
 
   return (

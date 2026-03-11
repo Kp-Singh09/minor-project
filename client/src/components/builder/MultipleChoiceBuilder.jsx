@@ -18,9 +18,15 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
 
   useEffect(() => {
     if (initialData) {
-      setQuestionText(initialData.text || 'Your Question Here');
-      setOptions(initialData.options || ['Option 1', 'Option 2']);
-      setCorrectAnswerIndex(initialData.options?.indexOf(initialData.correctAnswer) || 0);
+      // FIXED: Handle both flat (old) and nested (new/DB) structures
+      const data = initialData.content || initialData;
+      
+      // Map 'question' (DB) or 'text' (UI state)
+      setQuestionText(data.question || data.text || 'Your Question Here');
+      setOptions(data.options || ['Option 1', 'Option 2']);
+      
+      const foundIndex = data.options?.indexOf(data.correctAnswer);
+      setCorrectAnswerIndex(foundIndex !== -1 ? foundIndex : 0);
     } else {
       setQuestionText('Your Question Here');
     }
@@ -46,12 +52,15 @@ const MultipleChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) 
   };
 
   const handleSave = () => {
+    // FIXED: Wrap specific fields inside 'content' object to match Mongoose Schema
     onSave({ 
-      ...initialData, 
+      _id: initialData?._id, // Preserve ID if editing
       type: 'MultipleChoice', 
-      text: questionText, 
-      options, 
-      correctAnswer: options[correctAnswerIndex] 
+      content: {
+        question: questionText, 
+        options, 
+        correctAnswer: options[correctAnswerIndex] 
+      }
     });
   };
 

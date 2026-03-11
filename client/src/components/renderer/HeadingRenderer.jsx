@@ -1,12 +1,13 @@
-// client/src/components/renderer/HeadingRenderer.jsx
-import React from 'react';
+const HeadingRenderer = ({ question, theme }) => {
+  const content = question.content || {};
+  const text = content.question || content.text || '';
 
-const HeadingRenderer = ({ text, theme }) => {
   return (
-    <h2 className={`text-3xl font-bold ${theme.text}`}>
-      {text}
-    </h2>
+    <div className="py-4">
+      <h2 className={`text-3xl font-bold ${theme.text} border-b border-white/10 pb-2`}>
+        {text}
+      </h2>
+    </div>
   );
 };
-
 export default HeadingRenderer;

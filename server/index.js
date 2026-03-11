@@ -27,7 +27,9 @@ const httpServer = createServer(app); // Create HTTP server wrapping Express
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://formify-kp.vercel.app',
-  'https://formify-kp.vercel.app/'
+  'https://formify-kp.vercel.app/',
+  'http://localhost:5173', // <--- FIXED: Added Localhost for development
+  'http://localhost:5174'
 ];
 
 const corsOptions = {

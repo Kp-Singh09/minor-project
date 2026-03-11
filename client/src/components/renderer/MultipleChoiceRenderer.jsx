@@ -1,8 +1,16 @@
-// client/src/components/renderer/MultipleChoiceRenderer.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-const MultipleChoiceRenderer = ({ question, onAnswerChange, theme }) => {
-  const [selected, setSelected] = useState(null);
+const MultipleChoiceRenderer = ({ question, onAnswerChange, theme, savedAnswer }) => {
+  const [selected, setSelected] = useState(savedAnswer || null);
+  
+  // Safe extraction
+  const content = question.content || {};
+  const text = content.question || content.text || 'Question Text';
+  const options = content.options || [];
+
+  useEffect(() => {
+    if (savedAnswer) setSelected(savedAnswer);
+  }, [savedAnswer]);
 
   const handleSelection = (option) => {
     setSelected(option);
@@ -10,22 +18,26 @@ const MultipleChoiceRenderer = ({ question, onAnswerChange, theme }) => {
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg}`}>
-      <p className={`font-semibold text-lg mb-3 ${theme.text}`}>{question.text}</p>
-      <div className="space-y-2">
-        {question.options.map((option, index) => (
+    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg} border-white/10`}>
+      <p className={`font-semibold text-lg mb-4 ${theme.text}`}>{text}</p>
+      <div className="space-y-3">
+        {options.map((option, index) => (
           <label 
             key={index} 
-            className={`flex items-center p-3 rounded-md hover:bg-gray-500/10 cursor-pointer transition-colors ${selected === option ? 'bg-gray-500/20' : ''}`}
+            className={`flex items-center p-4 rounded-lg cursor-pointer transition-all border ${
+              selected === option 
+                ? 'bg-indigo-500/20 border-indigo-500/50' 
+                : 'hover:bg-white/5 border-transparent'
+            }`}
           >
             <input
               type="radio"
               name={`mcq-${question._id}`}
               checked={selected === option}
               onChange={() => handleSelection(option)}
-              className={`mr-4 h-5 w-5 ${theme.radio}`}
+              className={`mr-4 h-5 w-5 accent-indigo-500`}
             />
-            <span className={theme.secondaryText}>{option}</span>
+            <span className={theme.text}>{option}</span>
           </label>
         ))}
       </div>

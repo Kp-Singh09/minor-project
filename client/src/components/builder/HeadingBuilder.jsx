@@ -16,14 +16,21 @@ const HeadingBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   useEffect(() => {
     if (initialData) {
-      setText(initialData.text || 'New Heading');
+      const data = initialData.content || initialData;
+      setText(data.question || data.text || 'New Heading');
     } else {
       setText('New Heading');
     }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ ...initialData, type: 'Heading', text });
+    onSave({ 
+      _id: initialData?._id,
+      type: 'Heading', 
+      content: {
+        question: text // Using 'question' key to store the heading text for consistency
+      }
+    });
   };
 
   return (
