@@ -133,10 +133,18 @@ export default function AnalyticsPage() {
                 <div className="max-h-[500px] overflow-y-auto">
                     {leaderboard.length > 0 ? (
                         leaderboard.map((entry, index) => {
-                            const isMe = entry.userId === userId;
+                            // SAFEGUARD: Provide fallback if entry.userId is null/undefined
+                            const safeUserId = entry.userId || `unknown-${index}`;
+                            const isMe = entry.userId === userId && userId !== undefined;
+                            
+                            // Get last 4 characters safely
+                            const shortId = typeof safeUserId === 'string' && safeUserId.length >= 4 
+                                ? safeUserId.slice(-4) 
+                                : String(safeUserId).slice(-4);
+
                             return (
                                 <motion.div 
-                                    key={entry.userId}
+                                    key={safeUserId}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.05 }}
@@ -161,10 +169,10 @@ export default function AnalyticsPage() {
                                         </div>
                                         <div className="truncate">
                                             <p className={`font-medium ${isMe ? 'text-indigo-300' : 'text-slate-300'}`}>
-                                                {isMe ? "You (Current User)" : `Architect-${entry.userId.slice(-4)}`}
+                                                {isMe ? "You (Current User)" : `Architect-${shortId}`}
                                             </p>
                                             <p className="text-[10px] text-white/20 font-mono hidden md:block">
-                                                ID: {entry.userId}
+                                                ID: {safeUserId}
                                             </p>
                                         </div>
                                     </div>

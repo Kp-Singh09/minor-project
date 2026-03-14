@@ -90,6 +90,8 @@ export const getLeaderboard = async (req, res) => {
                 }
             },
             { $unwind: "$form" },
+            // FILTER: Ensure the form has a valid creatorId to prevent null crashes on frontend
+            { $match: { "form.creatorId": { $ne: null, $exists: true, $ne: "" } } },
             // 3. Group by Creator (User)
             {
                 $group: {
