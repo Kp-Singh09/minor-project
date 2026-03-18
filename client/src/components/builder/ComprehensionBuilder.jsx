@@ -2,32 +2,18 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
+const ComprehensionBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [passage, setPassage] = useState('');
   const [mcqs, setMcqs] = useState([{ questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
 
-  // Default theme fallback
-  const currentTheme = theme || { 
-    name: 'Light',
-    cardBg: 'bg-white', 
-    text: 'text-gray-900', 
-    secondaryText: 'text-gray-500', 
-    input: 'bg-white border-gray-300 text-gray-900' 
-  };
-
-  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
-
   useEffect(() => {
     if (initialData) {
       const data = initialData.content || initialData;
       setPassage(data.comprehensionPassage || '');
-      const initialMcqs = (data.mcqs || []).map(mcq => ({
-        ...mcq,
-        correctAnswerIndex: mcq.options.indexOf(mcq.correctAnswer)
-      }));
+      const initialMcqs = (data.mcqs || []).map(mcq => ({ ...mcq, correctAnswerIndex: mcq.options.indexOf(mcq.correctAnswer) }));
       setMcqs(initialMcqs);
       setImagePreview(data.image || '');
     }
@@ -61,18 +47,12 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
     const newMcqs = [...mcqs];
     if (newMcqs[mcqIndex].options.length > 2) {
       newMcqs[mcqIndex].options.splice(optionIndex, 1);
-      if (newMcqs[mcqIndex].correctAnswerIndex >= newMcqs[mcqIndex].options.length) {
-        newMcqs[mcqIndex].correctAnswerIndex = newMcqs[mcqIndex].options.length - 1;
-      }
+      if (newMcqs[mcqIndex].correctAnswerIndex >= newMcqs[mcqIndex].options.length) newMcqs[mcqIndex].correctAnswerIndex = newMcqs[mcqIndex].options.length - 1;
       setMcqs(newMcqs);
-    } else {
-      alert('A question must have at least two options.');
-    }
+    } else { alert('A question must have at least two options.'); }
   };
 
-  const addMcq = () => {
-    setMcqs([...mcqs, { questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
-  };
+  const addMcq = () => setMcqs([...mcqs, { questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
 
   const handleQuestionImageUpload = (event) => {
     const file = event.target.files[0];
@@ -83,8 +63,7 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
 
   const handleSave = async () => {
     if (!passage.trim() || mcqs.some(q => !q.questionText.trim() || q.options.some(opt => !opt.trim()))) {
-      alert('Please fill in the passage, all question texts, and all option fields.');
-      return;
+      return alert('Please fill in the passage, all question texts, and all option fields.');
     }
     let imageUrl = imagePreview;
     if (imageFile) {
@@ -99,125 +78,88 @@ const ComprehensionBuilder = ({ onSave, onCancel, initialData = null, theme }) =
         formData.append('token', authResponse.data.token);
         const uploadResponse = await axios.post('https://upload.imagekit.io/api/v1/files/upload', formData);
         imageUrl = uploadResponse.data.url;
-      } catch (err) {
-        alert('Failed to upload question image. Please try again.');
-        console.error(err);
-        return;
-      }
+      } catch (err) { return alert('Failed to upload question image. Please try again.'); }
     }
     onSave({
-      _id: initialData?._id,
-      type: 'Comprehension',
+      _id: initialData?._id, type: 'Comprehension',
       content: {
-        comprehensionPassage: passage,
-        mcqs: mcqs.map(q => ({
-            questionText: q.questionText,
-            options: q.options,
-            correctAnswer: q.options[q.correctAnswerIndex]
-        })),
-        image: imageUrl,
+        comprehensionPassage: passage, image: imageUrl,
+        mcqs: mcqs.map(q => ({ questionText: q.questionText, options: q.options, correctAnswer: q.options[q.correctAnswerIndex] }))
       }
     });
   };
 
   return (
-    <div className={`p-6 animate-fadeIn rounded-lg ${currentTheme.cardBg}`}>
-      <div className={`flex justify-between items-center mb-4 border-b pb-4 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <h3 className={`text-xl font-bold ${currentTheme.text}`}>{initialData ? 'Edit' : 'Create'} Comprehension Question</h3>
+    <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-emerald-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-t-xl"></div>
+      
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
+        <h3 className="text-xl font-bold text-white tracking-tight">{initialData ? 'Edit' : 'Create'} Comprehension</h3>
         {!imagePreview && (
           <>
             <input type="file" ref={fileInputRef} onChange={handleQuestionImageUpload} style={{ display: 'none' }} accept="image/*" />
-            <button 
-              onClick={() => fileInputRef.current.click()} 
-              className={`text-sm py-2 px-4 rounded-md transition-colors font-medium border ${isDark ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'}`}
-            >
-              Add Image
+            <button onClick={() => fileInputRef.current.click()} className="text-sm py-2 px-4 rounded-lg transition-colors font-medium border bg-white/5 border-white/10 text-white hover:bg-white/10">
+              + Add Image
             </button>
           </>
         )}
       </div>
 
       {imagePreview && (
-        <div className={`mb-4 p-3 rounded-lg flex items-center gap-4 ${isDark ? 'bg-white/5 border-white/10' : 'bg-green-50 border-green-200'}`}>
-          <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-md"/>
+        <div className="mb-6 p-4 rounded-xl flex items-center gap-4 bg-white/5 border border-white/10">
+          <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-lg shadow-md"/>
           <div className="flex-grow">
-            <p className={`font-semibold ${currentTheme.text}`}>Image selected!</p>
-            <p className={`text-xs truncate ${currentTheme.secondaryText}`}>{imageFile?.name || ''}</p>
+            <p className="font-semibold text-white">Image Uploaded</p>
+            <p className="text-xs truncate text-white/50">{imageFile?.name || 'Linked Image'}</p>
           </div>
-          <button onClick={() => { setImagePreview(''); setImageFile(null); }} className="text-red-500 hover:text-red-700 text-xs font-semibold">
-            Remove
-          </button>
+          <button onClick={() => { setImagePreview(''); setImageFile(null); }} className="text-red-400 hover:text-red-300 text-sm font-semibold bg-red-500/10 px-3 py-1 rounded-md">Remove</button>
         </div>
       )}
 
-      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Passage</label>
+      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Passage</label>
       <textarea
-        className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
-        rows="6"
-        placeholder="Enter the reading passage here..."
-        value={passage}
-        onChange={(e) => setPassage(e.target.value)}
+        className="w-full p-4 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white/5 border border-white/10 text-white placeholder-white/30 transition-all font-medium mb-8"
+        rows="6" placeholder="Enter the reading passage here..." value={passage} onChange={(e) => setPassage(e.target.value)}
       />
 
-      <div className="mt-6">
-        <h4 className={`font-semibold text-lg mb-4 ${currentTheme.text}`}>Multiple Choice Questions</h4>
+      <div>
+        <h4 className="font-semibold text-lg mb-4 text-white">Multiple Choice Questions</h4>
         {mcqs.map((mcq, index) => (
-          <div key={index} className={`p-4 rounded-md mb-4 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+          <div key={index} className="p-5 rounded-xl mb-4 border bg-white/[0.02] border-white/10 shadow-inner">
             <input
               type="text"
-              className={`w-full p-2 mb-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
-              placeholder={`Question ${index + 1}`}
-              value={mcq.questionText}
-              onChange={(e) => handleMcqChange(index, 'questionText', e.target.value)}
+              className="w-full p-3 mb-4 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white/5 border border-white/10 text-white transition-all font-medium"
+              placeholder={`Question ${index + 1}`} value={mcq.questionText} onChange={(e) => handleMcqChange(index, 'questionText', e.target.value)}
             />
-            <div className="pl-4 space-y-2">
+            <div className="pl-2 space-y-3">
               {mcq.options.map((option, optIndex) => (
-                <div key={optIndex} className="flex items-center gap-2">
+                <div key={optIndex} className="flex items-center gap-3">
                   <input
-                    type="radio"
-                    name={`correct-answer-${index}`}
-                    checked={mcq.correctAnswerIndex === optIndex}
+                    type="radio" name={`correct-answer-${index}`} checked={mcq.correctAnswerIndex === optIndex}
                     onChange={() => handleCorrectAnswerChange(index, optIndex)}
-                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    className="h-5 w-5 text-emerald-500 focus:ring-emerald-500 border-white/20 bg-transparent cursor-pointer"
                   />
                   <input
-                    type="text"
-                    className={`w-full p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
-                    placeholder={`Option ${optIndex + 1}`}
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, optIndex, e.target.value)}
+                    type="text" className="w-full p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white/5 border border-white/10 text-white transition-all"
+                    placeholder={`Option ${optIndex + 1}`} value={option} onChange={(e) => handleOptionChange(index, optIndex, e.target.value)}
                   />
-                  <button
-                    onClick={() => removeOption(index, optIndex)}
-                    className="text-red-500 hover:text-red-700 p-1 rounded-full"
-                    title="Remove option"
-                  >
-                    &#x2715;
-                  </button>
+                  <button onClick={() => removeOption(index, optIndex)} className="text-white/40 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-colors">✕</button>
                 </div>
               ))}
-              <button onClick={() => addOption(index)} className="mt-2 text-sm text-blue-500 hover:underline">
-                + Add Option
-              </button>
+              <button onClick={() => addOption(index)} className="mt-2 text-sm text-emerald-400 hover:text-emerald-300 font-medium">+ Add Option</button>
             </div>
           </div>
         ))}
-        <button onClick={addMcq} className="text-sm bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
-          Add Another MCQ
+        <button onClick={addMcq} className="mt-2 text-sm bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-5 rounded-lg hover:bg-emerald-600/40 transition-all font-medium">
+          + Add Another MCQ
         </button>
       </div>
 
-      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <button 
-          onClick={onCancel} 
-          className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          Cancel
-        </button>
-        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
+      <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-white/10">
+        <button onClick={onCancel} className="px-6 py-3 rounded-xl font-medium transition-colors bg-white/5 text-white/80 hover:bg-white/10 border border-white/10">Cancel</button>
+        <button onClick={handleSave} className="bg-emerald-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-500/25 transition-all">Save Question</button>
       </div>
     </div>
   );
 };
-
 export default ComprehensionBuilder;

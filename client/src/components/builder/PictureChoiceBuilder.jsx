@@ -2,13 +2,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove, onCorrectSet, theme, isDark }) => {
+const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove, onCorrectSet }) => {
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setIsUploading(true);
     try {
       const authResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/imagekit/auth`);
@@ -19,82 +18,53 @@ const PictureOption = ({ option, index, onOptionChange, onImageUpload, onRemove,
       formData.append('signature', authResponse.data.signature);
       formData.append('expire', authResponse.data.expire);
       formData.append('token', authResponse.data.token);
-
       const uploadResponse = await axios.post('https://upload.imagekit.io/api/v1/files/upload', formData);
       onImageUpload(index, uploadResponse.data.url);
-    } catch (err) {
-      alert('Failed to upload image.');
-      console.error(err);
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (err) { alert('Failed to upload image.'); } 
+    finally { setIsUploading(false); }
   };
 
   return (
-    <div className={`flex items-center gap-4 p-3 border rounded-md ${isDark ? 'bg-white/5 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+    <div className="flex items-center gap-4 bg-white/[0.02] p-3 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-colors">
       <input
         type="radio"
         name="correct-pic-answer"
         checked={option.isCorrect}
         onChange={() => onCorrectSet(index)}
-        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+        className="ml-2 h-5 w-5 text-indigo-500 focus:ring-indigo-500 border-white/20 bg-transparent cursor-pointer"
       />
-      <div className={`w-16 h-16 rounded-md border flex-shrink-0 overflow-hidden ${isDark ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-gray-100'}`}>
+      <div className="w-16 h-16 rounded-lg border border-white/10 bg-black/20 flex-shrink-0 overflow-hidden flex items-center justify-center">
         {option.image ? (
             <img src={option.image} alt="Option" className="w-full h-full object-cover" />
-        ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Img</div>
-        )}
+        ) : ( <span className="text-xs text-white/30">No Img</span> )}
       </div>
-      
       <div className="flex-grow">
           <input
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className={`block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold cursor-pointer ${isDark ? 'text-gray-300 file:bg-gray-700 file:text-white hover:file:bg-gray-600' : 'text-gray-700 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'}`}
+            className="block w-full text-sm text-white/60 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold cursor-pointer file:bg-white/10 file:text-white hover:file:bg-white/20 transition-all"
             disabled={isUploading}
           />
-          {isUploading && <span className="text-xs text-blue-500 mt-1">Uploading...</span>}
+          {isUploading && <span className="text-xs text-indigo-400 mt-1 block">Uploading to neural net...</span>}
       </div>
-
-      <button onClick={onRemove} className="text-red-500 hover:text-red-700 p-2" title="Remove option">
-        &#x2715;
-      </button>
+      <button onClick={onRemove} className="p-3 mr-1 rounded-lg transition-colors text-white/40 hover:text-red-400 hover:bg-red-500/10">✕</button>
     </div>
   );
 };
 
-const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
+const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [questionText, setQuestionText] = useState('');
-  const [options, setOptions] = useState([
-    { image: '', isCorrect: true },
-    { image: '', isCorrect: false }
-  ]);
-
-  const currentTheme = theme || { 
-    name: 'Light',
-    cardBg: 'bg-white', 
-    text: 'text-gray-900', 
-    input: 'bg-white border-gray-300 text-gray-900' 
-  };
-  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
+  const [options, setOptions] = useState([{ image: '', isCorrect: true }, { image: '', isCorrect: false }]);
 
   useEffect(() => {
     if (initialData) {
       const data = initialData.content || initialData;
       setQuestionText(data.question || data.text || 'Which one is correct?');
       if (data.options && data.options.length > 0) {
-        setOptions(
-          data.options.map(imgUrl => ({
-            image: imgUrl,
-            isCorrect: imgUrl === data.correctAnswer
-          }))
-        );
+        setOptions(data.options.map(imgUrl => ({ image: imgUrl, isCorrect: imgUrl === data.correctAnswer })));
       }
-    } else {
-      setQuestionText('Which one is correct?');
-    }
+    } else { setQuestionText('Which one is correct?'); }
   }, [initialData]);
 
   const handleImageUpload = (index, url) => {
@@ -103,17 +73,8 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) =
     setOptions(newOptions);
   };
 
-  const setCorrect = (index) => {
-    setOptions(
-      options.map((opt, i) => ({
-        ...opt,
-        isCorrect: i === index
-      }))
-    );
-  };
-
+  const setCorrect = (index) => setOptions(options.map((opt, i) => ({ ...opt, isCorrect: i === index })));
   const addOption = () => setOptions([...options, { image: '', isCorrect: false }]);
-
   const removeOption = (index) => {
     if (options.length <= 2) return alert('Must have at least two options');
     setOptions(options.filter((_, i) => i !== index));
@@ -121,63 +82,43 @@ const PictureChoiceBuilder = ({ onSave, onCancel, initialData = null, theme }) =
 
   const handleSave = () => {
     const correctOption = options.find(opt => opt.isCorrect);
-    if (options.some(opt => !opt.image)) {
-      return alert("Please upload an image for all options.");
-    }
-    
+    if (options.some(opt => !opt.image)) return alert("Please upload an image for all options.");
     onSave({ 
-      _id: initialData?._id,
-      type: 'PictureChoice', 
-      content: {
-        question: questionText, 
-        options: options.map(opt => opt.image), 
-        correctAnswer: correctOption ? correctOption.image : null
-      }
+      _id: initialData?._id, type: 'PictureChoice', 
+      content: { question: questionText, options: options.map(opt => opt.image), correctAnswer: correctOption ? correctOption.image : null }
     });
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Picture Choice</h3>
+    <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-indigo-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-t-xl"></div>
+      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Picture Choice</h3>
       
-      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Question Text</label>
+      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Question Text</label>
       <input
         type="text"
-        className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none mb-6 ${currentTheme.input}`}
+        className="w-full p-4 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none mb-8 bg-white/5 border border-white/10 text-white placeholder-white/30 transition-all font-medium"
         placeholder="Enter your question"
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
       />
 
-      <label className={`block font-semibold mb-3 ${currentTheme.text}`}>Options <span className="text-sm font-normal opacity-70">(Select the correct image)</span></label>
-      <div className="space-y-3">
+      <label className="block font-medium mb-3 text-white/70 text-sm uppercase tracking-wider">Options <span className="text-xs font-normal opacity-70 ml-1 normal-case tracking-normal">(Select correct image)</span></label>
+      <div className="space-y-4">
         {options.map((option, index) => (
-          <PictureOption
-            key={index}
-            option={option}
-            index={index}
-            onImageUpload={handleImageUpload}
-            onRemove={() => removeOption(index)}
-            onCorrectSet={setCorrect}
-            theme={currentTheme}
-            isDark={isDark}
-          />
+          <PictureOption key={index} option={option} index={index} onImageUpload={handleImageUpload} onRemove={() => removeOption(index)} onCorrectSet={setCorrect} />
         ))}
       </div>
       
-      <button 
-        onClick={addOption} 
-        className={`mt-4 text-sm font-medium py-2 px-4 rounded-md transition-colors border border-dashed ${isDark ? 'border-gray-500 text-blue-400 hover:bg-white/5' : 'border-gray-300 text-blue-600 hover:bg-blue-50'}`}
-      >
-        + Add Picture
+      <button onClick={addOption} className="mt-6 text-sm font-medium py-3 px-6 rounded-xl transition-colors border border-dashed border-white/20 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500/50">
+        + Add Picture Option
       </button>
 
-      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-        <button onClick={onCancel} className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
-        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
+      <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-white/10">
+        <button onClick={onCancel} className="px-6 py-3 rounded-xl font-medium transition-colors bg-white/5 text-white/80 hover:bg-white/10 border border-white/10">Cancel</button>
+        <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all">Save Question</button>
       </div>
     </div>
   );
 };
-
 export default PictureChoiceBuilder;

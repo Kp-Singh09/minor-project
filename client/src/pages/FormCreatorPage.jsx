@@ -5,22 +5,18 @@ import ChooseTheme from '../components/FormCreator/ChooseTheme';
 import FormEditorUI from '../components/FormCreator/FormEditorUI';
 
 const FormCreatorPage = () => {
-    // State to manage the current stage of form creation
-    // 'start': Choose how to get started (Blank form, Template)
-    // 'theme': Choose a theme
-    // 'editor': Main form editor
     const [stage, setStage] = useState('start');
-    const [formType, setFormType] = useState(null); // 'blank' or 'template'
-    const [selectedTheme, setSelectedTheme] = useState(null); // Stores the selected theme
+    const [formType, setFormType] = useState(null); 
+    const [selectedTheme, setSelectedTheme] = useState(null); 
 
     const handleSelectStart = (type) => {
         setFormType(type);
-        setStage('theme'); // Move to theme selection after choosing start type
+        setStage('theme'); 
     };
 
     const handleSelectTheme = (theme) => {
         setSelectedTheme(theme);
-        setStage('editor'); // Move to editor after selecting a theme
+        setStage('editor'); 
     };
 
     const handleBackToStart = () => {
@@ -34,18 +30,26 @@ const FormCreatorPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-            {stage === 'start' && (
-                <ChooseStart onSelect={handleSelectStart} />
-            )}
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            {/* Dark Mode Ambient Background matching Dashboard */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px]" />
+            </div>
 
-            {stage === 'theme' && (
-                <ChooseTheme onSelectTheme={handleSelectTheme} onBack={handleBackToStart} />
-            )}
+            <div className="relative z-10 w-full flex flex-col items-center">
+                {stage === 'start' && (
+                    <ChooseStart onSelect={handleSelectStart} onCancel={() => window.history.back()} />
+                )}
 
-            {stage === 'editor' && (
-                <FormEditorUI selectedTheme={selectedTheme} onBack={handleBackToTheme} />
-            )}
+                {stage === 'theme' && (
+                    <ChooseTheme onSelectTheme={handleSelectTheme} onBack={handleBackToStart} />
+                )}
+
+                {stage === 'editor' && (
+                    <FormEditorUI selectedTheme={selectedTheme} onBack={handleBackToTheme} />
+                )}
+            </div>
         </div>
     );
 };

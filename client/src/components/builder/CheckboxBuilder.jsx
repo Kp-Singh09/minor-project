@@ -1,19 +1,10 @@
 // client/src/components/builder/CheckboxBuilder.jsx
 import { useState, useEffect } from 'react';
 
-const CheckboxBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
+const CheckboxBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState(['Option 1', 'Option 2']);
   const [correctAnswers, setCorrectAnswers] = useState([]);
-
-  const currentTheme = theme || { 
-    name: 'Light',
-    cardBg: 'bg-white', 
-    text: 'text-gray-900', 
-    secondaryText: 'text-gray-500', 
-    input: 'bg-white border-gray-300 text-gray-900' 
-  };
-  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
@@ -33,11 +24,7 @@ const CheckboxBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
   };
 
   const handleCorrectChange = (optionText) => {
-    setCorrectAnswers(prev => 
-      prev.includes(optionText)
-        ? prev.filter(item => item !== optionText)
-        : [...prev, optionText]
-    );
+    setCorrectAnswers(prev => prev.includes(optionText) ? prev.filter(item => item !== optionText) : [...prev, optionText]);
   };
 
   const addOption = () => setOptions([...options, 'New Option']);
@@ -51,65 +38,55 @@ const CheckboxBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   const handleSave = () => {
     onSave({ 
-      _id: initialData?._id,
-      type: 'Checkbox', 
-      content: {
-        question: questionText, 
-        options, 
-        correctAnswers 
-      }
+      _id: initialData?._id, type: 'Checkbox', 
+      content: { question: questionText, options, correctAnswers }
     });
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Checkboxes</h3>
+    <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-indigo-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-t-xl"></div>
+      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Checkboxes</h3>
       
-      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Question Text</label>
+      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Question Text</label>
       <input
         type="text"
-        className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none mb-6 ${currentTheme.input}`}
+        className="w-full p-4 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none mb-8 bg-white/5 border border-white/10 text-white placeholder-white/30 transition-all font-medium"
         placeholder="Enter your question"
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
       />
 
-      <label className={`block font-semibold mb-3 ${currentTheme.text}`}>Options <span className="text-sm font-normal opacity-70">(Select correct ones)</span></label>
-      <div className="space-y-3">
+      <label className="block font-medium mb-3 text-white/70 text-sm uppercase tracking-wider">
+        Options <span className="text-xs font-normal opacity-70 ml-1 normal-case tracking-normal">(Select correct ones)</span>
+      </label>
+      
+      <div className="space-y-4">
         {options.map((option, index) => (
-          <div key={index} className="flex items-center gap-3">
+          <div key={index} className="flex items-center gap-4 bg-white/[0.02] p-2 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-colors">
             <input
               type="checkbox"
               checked={correctAnswers.includes(option)}
               onChange={() => handleCorrectChange(option)}
-              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+              className="ml-3 h-5 w-5 text-indigo-500 focus:ring-indigo-500 border-white/20 bg-transparent rounded cursor-pointer"
             />
             <input
               type="text"
-              className={`flex-grow p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
+              className="flex-grow p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white/5 border border-white/10 text-white transition-all"
               value={option}
               onChange={(e) => handleOptionChange(index, e.target.value)}
             />
-            <button 
-              onClick={() => removeOption(index)} 
-              className={`p-2 rounded-full transition-colors ${isDark ? 'text-gray-400 hover:text-red-400 hover:bg-white/10' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'}`}
-              title="Remove option"
-            >
-              ✕
-            </button>
+            <button onClick={() => removeOption(index)} className="p-3 mr-1 rounded-lg transition-colors text-white/40 hover:text-red-400 hover:bg-red-500/10">✕</button>
           </div>
         ))}
       </div>
-      <button 
-        onClick={addOption} 
-        className={`mt-4 text-sm font-medium py-2 px-4 rounded-md transition-colors border border-dashed ${isDark ? 'border-gray-500 text-blue-400 hover:bg-white/5' : 'border-gray-300 text-blue-600 hover:bg-blue-50'}`}
-      >
+      <button onClick={addOption} className="mt-6 text-sm font-medium py-3 px-6 rounded-xl transition-colors border border-dashed border-white/20 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500/50">
         + Add Option
       </button>
 
-      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-        <button onClick={onCancel} className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
-        <button onClick={handleSave} className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors">Save Question</button>
+      <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-white/10">
+        <button onClick={onCancel} className="px-6 py-3 rounded-xl font-medium transition-colors bg-white/5 text-white/80 hover:bg-white/10 border border-white/10">Cancel</button>
+        <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all">Save Question</button>
       </div>
     </div>
   );

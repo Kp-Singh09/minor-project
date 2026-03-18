@@ -1,63 +1,37 @@
 // client/src/components/builder/EmailBuilder.jsx
 import { useState, useEffect } from 'react';
 
-const EmailBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
+const EmailBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [text, setText] = useState('');
-
-  const currentTheme = theme || { 
-    name: 'Light',
-    cardBg: 'bg-white', 
-    text: 'text-gray-900', 
-    secondaryText: 'text-gray-500', 
-    input: 'bg-white border-gray-300 text-gray-900' 
-  };
-  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
       const data = initialData.content || initialData;
-      setText(data.question || data.text || 'Email');
-    } else {
-      setText('Email');
-    }
+      setText(data.question || data.text || 'Email Address');
+    } else { setText('Email Address'); }
   }, [initialData]);
 
   const handleSave = () => {
-    onSave({ 
-      _id: initialData?._id,
-      type: 'Email', 
-      content: {
-        question: text 
-      }
-    });
+    onSave({ _id: initialData?._id, type: 'Email', content: { question: text } });
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Email Input</h3>
+    <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-pink-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-rose-500 rounded-t-xl"></div>
+      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Email Input</h3>
       
-      <label className={`block font-semibold mb-2 ${currentTheme.text}`}>Label Text</label>
+      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Label Text</label>
       <input
         type="text"
-        className={`w-full p-3 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${currentTheme.input}`}
-        placeholder="Enter label (e.g., 'Your Email')"
+        className="w-full p-4 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent focus:outline-none bg-white/5 border border-white/10 text-white placeholder-white/30 transition-all font-medium"
+        placeholder="Enter label (e.g., 'Your Work Email')"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
 
-      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-        <button 
-          onClick={onCancel} 
-          className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          Cancel
-        </button>
-        <button 
-          onClick={handleSave} 
-          className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors"
-        >
-          Save Question
-        </button>
+      <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-white/10">
+        <button onClick={onCancel} className="px-6 py-3 rounded-xl font-medium transition-colors bg-white/5 text-white/80 hover:bg-white/10 border border-white/10">Cancel</button>
+        <button onClick={handleSave} className="bg-pink-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-pink-500 shadow-lg shadow-pink-500/25 transition-all">Save Question</button>
       </div>
     </div>
   );

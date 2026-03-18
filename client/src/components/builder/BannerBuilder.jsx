@@ -2,19 +2,10 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
+const BannerBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
-
-  const currentTheme = theme || { 
-    name: 'Light',
-    cardBg: 'bg-white', 
-    text: 'text-gray-900', 
-    secondaryText: 'text-gray-500', 
-    input: 'bg-white border-gray-300 text-gray-900' 
-  };
-  const isDark = ['Dark', 'Navy Pop', 'Futuristic', 'Cyber Dawn'].includes(currentTheme.name);
 
   useEffect(() => {
     if (initialData) {
@@ -32,7 +23,6 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
 
   const handleSave = async () => {
     let imageUrl = imagePreview;
-
     if (imageFile) {
       try {
         const authResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/imagekit/auth`);
@@ -43,71 +33,42 @@ const BannerBuilder = ({ onSave, onCancel, initialData = null, theme }) => {
         formData.append('signature', authResponse.data.signature);
         formData.append('expire', authResponse.data.expire);
         formData.append('token', authResponse.data.token);
-
         const uploadResponse = await axios.post('https://upload.imagekit.io/api/v1/files/upload', formData);
         imageUrl = uploadResponse.data.url;
-      } catch (err) {
-        alert('Failed to upload banner image. Please try again.');
-        console.error(err);
-        return;
-      }
+      } catch (err) { return alert('Failed to upload banner image.'); }
     }
-
-    if (!imageUrl) {
-        alert("Please upload an image for the banner.");
-        return;
-    }
-
-    onSave({ 
-      _id: initialData?._id,
-      type: 'Banner', 
-      content: {
-        image: imageUrl 
-      }
-    });
+    if (!imageUrl) return alert("Please upload an image for the banner.");
+    onSave({ _id: initialData?._id, type: 'Banner', content: { image: imageUrl } });
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md animate-fadeIn border ${currentTheme.cardBg} ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-      <h3 className={`text-xl font-bold mb-4 pb-4 border-b ${currentTheme.text} ${isDark ? 'border-gray-600' : 'border-gray-100'}`}>Edit Banner Image</h3>
+    <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-amber-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-xl"></div>
+      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Banner Image</h3>
       
       {!imagePreview && (
         <>
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} accept="image/*" />
-            <button 
-                onClick={() => fileInputRef.current.click()} 
-                className={`w-full py-4 border-2 border-dashed rounded-md transition-colors ${isDark ? 'border-gray-500 text-gray-300 hover:bg-white/5 hover:border-blue-400' : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-blue-500'}`}
-            >
+            <button onClick={() => fileInputRef.current.click()} className="w-full py-8 border-2 border-dashed rounded-xl transition-colors border-white/20 text-white/50 hover:bg-white/5 hover:border-amber-400 hover:text-amber-400 font-medium tracking-wide">
                 Click to Upload Banner Image
             </button>
         </>
       )}
 
       {imagePreview && (
-        <div className={`mb-4 p-3 rounded-lg flex flex-col items-center gap-4 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-green-50 border-green-200'}`}>
-          <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-cover rounded-md"/>
-          <button onClick={() => { setImagePreview(''); setImageFile(null); fileInputRef.current.value = null; }} className="text-red-600 hover:text-red-800 text-sm font-semibold">
+        <div className="mb-4 p-4 rounded-xl flex flex-col items-center gap-4 border bg-white/[0.02] border-white/10">
+          <img src={imagePreview} alt="Preview" className="w-full max-h-64 object-cover rounded-lg shadow-lg"/>
+          <button onClick={() => { setImagePreview(''); setImageFile(null); fileInputRef.current.value = null; }} className="text-red-400 hover:text-red-300 text-sm font-semibold bg-red-500/10 px-4 py-2 rounded-lg transition-colors">
             Remove Image
           </button>
         </div>
       )}
 
-      <div className={`flex justify-end gap-4 mt-8 pt-4 border-t ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-        <button 
-          onClick={onCancel} 
-          className={`px-6 py-2.5 rounded-lg font-medium transition-colors ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          Cancel
-        </button>
-        <button 
-          onClick={handleSave} 
-          className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md transition-colors"
-        >
-          Save Question
-        </button>
+      <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-white/10">
+        <button onClick={onCancel} className="px-6 py-3 rounded-xl font-medium transition-colors bg-white/5 text-white/80 hover:bg-white/10 border border-white/10">Cancel</button>
+        <button onClick={handleSave} className="bg-amber-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-amber-500 shadow-lg shadow-amber-500/25 transition-all">Save Question</button>
       </div>
     </div>
   );
 };
-
 export default BannerBuilder;

@@ -4,22 +4,32 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from '../api/axiosConfig'; 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Trash2, Radio, MessageSquareText, Users, Settings } from 'lucide-react'; // Added Settings
+import { Sparkles, Trash2, Radio, MessageSquareText, Users, Settings } from 'lucide-react'; 
 import toast from 'react-hot-toast';
 
 // Socket
 import { initSocket, disconnectSocket } from '../api/socket';
 
-// Builders
+// --- ALL 14 BUILDERS IMPORTED ---
 import ComprehensionBuilder from '../components/builder/ComprehensionBuilder';
 import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
 import MultipleChoiceBuilder from '../components/builder/MultipleChoiceBuilder'; 
+import ShortAnswerBuilder from '../components/builder/ShortAnswerBuilder';
+import LongAnswerBuilder from '../components/builder/LongAnswerBuilder';
+import CheckboxBuilder from '../components/builder/CheckboxBuilder';
+import BannerBuilder from '../components/builder/BannerBuilder';
+import DropdownBuilder from '../components/builder/DropdownBuilder';
+import EmailBuilder from '../components/builder/EmailBuilder';
+import HeadingBuilder from '../components/builder/HeadingBuilder';
+import ParagraphBuilder from '../components/builder/ParagraphBuilder';
+import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
+import SwitchBuilder from '../components/builder/SwitchBuilder';
 
 // Modals
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
 import TeamModal from '../components/FormCreator/TeamModal'; 
-import SettingsModal from '../components/FormCreator/SettingsModal'; // NEW IMPORT
+import SettingsModal from '../components/FormCreator/SettingsModal'; 
 
 const FormEditor = () => {
     const { formId } = useParams();
@@ -42,7 +52,7 @@ const FormEditor = () => {
     // Modal States
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [teamModalOpen, setTeamModalOpen] = useState(false);
-    const [settingsModalOpen, setSettingsModalOpen] = useState(false); // NEW STATE
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false); 
     
     // Real-Time States
     const [collaborators, setCollaborators] = useState([]);
@@ -75,7 +85,7 @@ const FormEditor = () => {
                 questions: [], 
                 headerImage: null, 
                 collaborators: [],
-                settings: { proctoring: 'none', privacy: 'public' } // Default settings
+                settings: { proctoring: 'none', privacy: 'public' }
             });
             setCurrentTitle(defaultTitle);
             setLoading(false);
@@ -182,15 +192,11 @@ const FormEditor = () => {
         }
     };
 
-    // NEW: Handle Settings Update
     const handleSettingsUpdate = async (newSettings) => {
-        // Optimistic update
         setForm(prev => ({ ...prev, settings: newSettings }));
-        
         if (!isNewForm) {
             try {
                 await axios.put(`/api/forms/${formId}`, { settings: newSettings });
-                // Optional: Toast here might be too frequent if typing, handle in modal close or debounce
             } catch (err) {
                 console.error("Settings Save Error", err);
                 toast.error("Failed to save settings");
@@ -303,6 +309,7 @@ const FormEditor = () => {
         }
     };
 
+    // --- RENDER ALL 14 BUILDERS ---
     const renderBuilder = () => {
         const type = editingQuestion ? editingQuestion.type.toLowerCase() : activeBuilder;
         const onCancel = () => { setActiveBuilder(null); setEditingQuestion(null); };
@@ -310,15 +317,29 @@ const FormEditor = () => {
         const props = { onSave: handleSaveQuestion, onCancel, initialData };
 
         switch(type) {
+            case 'multiplechoice': return <MultipleChoiceBuilder {...props} />;
+            case 'checkbox': return <CheckboxBuilder {...props} />;
+            case 'dropdown': return <DropdownBuilder {...props} />;
+            case 'picturechoice': return <PictureChoiceBuilder {...props} />;
+            
+            case 'shortanswer': return <ShortAnswerBuilder {...props} />;
+            case 'longanswer': return <LongAnswerBuilder {...props} />;
+            case 'email': return <EmailBuilder {...props} />;
+            
             case 'comprehension': return <ComprehensionBuilder {...props} />;
             case 'categorize': return <CategorizeBuilder {...props} />;
             case 'cloze': return <ClozeBuilder {...props} />;
-            case 'multiplechoice': return <MultipleChoiceBuilder {...props} />;
+            case 'switch': return <SwitchBuilder {...props} />;
+
+            case 'heading': return <HeadingBuilder {...props} />;
+            case 'paragraph': return <ParagraphBuilder {...props} />;
+            case 'banner': return <BannerBuilder {...props} />;
+            
             default: return null;
         }
     }
 
-    if (loading) return <div className="h-screen w-full flex items-center justify-center bg-slate-900 text-white">Connecting Neural Interface...</div>;
+    if (loading) return <div className="h-screen w-full flex items-center justify-center bg-slate-900 text-white font-mono uppercase tracking-widest text-xs">Connecting Neural Interface...</div>;
     if (error) return <div className="p-8 text-center text-xl text-red-500">{error}</div>;
     if (!form) return null;
 
@@ -326,7 +347,7 @@ const FormEditor = () => {
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-5xl mx-auto pb-20"
+            className="max-w-6xl mx-auto pb-20 pt-10 px-4"
         >
             <AiPromptModal 
                 isOpen={aiModalOpen}
@@ -344,7 +365,6 @@ const FormEditor = () => {
                 onUpdate={(newList) => setTeamList(newList)}
             />
 
-            {/* NEW SETTINGS MODAL */}
             <SettingsModal
                 isOpen={settingsModalOpen}
                 onClose={() => setSettingsModalOpen(false)}
@@ -352,39 +372,36 @@ const FormEditor = () => {
                 onUpdate={handleSettingsUpdate}
             />
 
-            {/* Header Card */}
-            <div className="bg-white p-6 rounded-lg mb-8 border border-gray-200 shadow-md border-t-4 border-t-indigo-500 relative">
+            {/* Header Card - Dark Neural Theme */}
+            <div className="bg-white/5 backdrop-blur-lg p-6 rounded-2xl mb-8 border border-white/10 shadow-2xl shadow-black/50 border-t-4 border-t-indigo-500 relative">
                 
-                {/* Live Indicator & Settings */}
                 <div className="absolute top-4 right-4 flex items-center gap-2">
                     {collaborators.length > 0 && (
-                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold border border-green-200">
+                        <div className="flex items-center gap-1 bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-500/30">
                             <Radio size={12} className="animate-pulse" />
                             {collaborators.length} Live
                         </div>
                     )}
                     
-                    {/* Settings Button */}
                     <button 
                         onClick={() => setSettingsModalOpen(true)}
                         disabled={isNewForm}
-                        className="flex items-center gap-1 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
                         title="Configure Monitoring"
                     >
                         <Settings size={12} /> Settings
                     </button>
 
-                    {/* Team Button */}
                     <button 
                         onClick={() => setTeamModalOpen(true)}
                         disabled={isNewForm}
-                        className="flex items-center gap-1 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
                     >
                         <Users size={12} /> Team
                     </button>
                 </div>
 
-                {form.headerImage && <img src={form.headerImage} alt="Form Header" className="w-full h-48 object-cover rounded-lg mb-4" />}
+                {form.headerImage && <img src={form.headerImage} alt="Form Header" className="w-full h-48 object-cover rounded-xl mb-4 border border-white/10" />}
                 
                 <div className="flex justify-between items-start mt-8">
                     <div className="flex-1 mr-4">
@@ -395,27 +412,27 @@ const FormEditor = () => {
                                 onChange={(e) => setCurrentTitle(e.target.value)}
                                 onBlur={handleTitleSave}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleTitleSave(); }}
-                                className="text-4xl font-bold bg-transparent border-b-2 border-gray-300 focus:outline-none focus:border-indigo-500 text-gray-900 w-full"
+                                className="text-4xl font-bold bg-transparent border-b-2 border-indigo-500/50 focus:outline-none focus:border-indigo-400 text-white w-full pb-1"
                                 autoFocus
                             />
                         ) : (
                             <h1
-                                className="text-4xl font-bold cursor-pointer hover:bg-gray-100 p-2 -m-2 rounded-md text-gray-900"
+                                className="text-4xl font-bold cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-md text-white transition-colors"
                                 onClick={() => setIsEditingTitle(true)}
                                 title="Click to edit title"
                             >
                                 {currentTitle}
                             </h1>
                         )}
-                        <p className="text-gray-500 mt-2 px-2">
+                        <p className="text-white/40 mt-2 px-2 font-mono text-xs uppercase tracking-widest">
                             {isNewForm ? "Draft Mode" : `ID: ${form._id}`}
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-3">
                         <button 
                             onClick={() => setAiModalOpen(true)}
-                            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-4 rounded-md shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2 font-semibold"
+                            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-xl shadow-lg hover:shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 font-semibold border border-white/10"
                         >
                             <Sparkles size={18} />
                             AI Generate
@@ -424,7 +441,7 @@ const FormEditor = () => {
                         <input type="file" ref={fileInputRef} onChange={handleHeaderImageUpload} style={{ display: 'none' }} accept="image/*" />
                         <button 
                             onClick={() => fileInputRef.current.click()} 
-                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-2 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                             disabled={isNewForm}
                         >
                             Upload Header
@@ -442,20 +459,26 @@ const FormEditor = () => {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="bg-white p-6 rounded-lg border border-gray-200 shadow-md hover:shadow-lg transition-shadow relative overflow-hidden"
+                            className="bg-white/5 backdrop-blur-md p-6 rounded-xl border border-white/10 shadow-lg hover:border-indigo-500/50 transition-all relative overflow-hidden group"
                         >
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">
+                                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2 font-mono">
                                         {question.type}
                                     </p>
-                                    <p className="text-lg font-semibold text-gray-800 truncate max-w-xl">
-                                        {question.content?.question || "Question Content"}
+                                    <p className="text-lg font-medium text-white/90 truncate max-w-xl">
+                                        {/* Dynamic content rendering based on type */}
+                                        {question.type === 'Cloze' ? 'Fill in the blanks passage' :
+                                         question.type === 'Categorize' ? 'Categorization Matrix' :
+                                         question.type === 'Banner' ? 'UI Banner' :
+                                         question.type === 'Heading' ? question.content?.text :
+                                         question.type === 'Paragraph' ? question.content?.text :
+                                         question.content?.question || "Module Content"}
                                     </p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setEditingQuestion(question)} className="text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 py-2 px-4 rounded-md font-medium">Edit</button>
-                                    <button onClick={() => handleDeleteQuestion(question._id)} className="text-sm bg-red-100 text-red-700 hover:bg-red-200 py-2 px-4 rounded-md font-medium flex items-center gap-1">
+                                <div className="flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setEditingQuestion(question)} className="text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/20 py-2 px-5 rounded-lg font-medium transition-colors">Edit</button>
+                                    <button onClick={() => handleDeleteQuestion(question._id)} className="text-sm bg-red-500/20 text-red-300 hover:bg-red-500/40 border border-red-500/20 py-2 px-5 rounded-lg font-medium flex items-center gap-2 transition-colors">
                                         <Trash2 size={16} /> Delete
                                     </button>
                                 </div>
@@ -465,49 +488,79 @@ const FormEditor = () => {
                 </AnimatePresence>
             </div>
 
-            {/* Builder Selection */}
+            {/* Builder Selection Grid */}
             <div className="mt-10">
                 {activeBuilder || editingQuestion ? (
-                    <div className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-white shadow-xl">
+                    <div className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-slate-900/50 backdrop-blur-xl shadow-2xl">
                          {renderBuilder()}
                     </div>
                 ) : (
-                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-white/50">
-                        <h3 className="text-xl font-semibold mb-4 text-gray-800">Add a New Question</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-                            <button onClick={() => setActiveBuilder('multiplechoice')} className="bg-blue-500 text-white py-3 px-5 rounded-lg shadow hover:bg-blue-600 transition-colors font-medium">Multiple Choice</button>
-                            <button onClick={() => setActiveBuilder('comprehension')} className="bg-purple-500 text-white py-3 px-5 rounded-lg shadow hover:bg-purple-600 transition-colors font-medium">Comprehension</button>
-                            <button onClick={() => setActiveBuilder('categorize')} className="bg-emerald-500 text-white py-3 px-5 rounded-lg shadow hover:bg-emerald-600 transition-colors font-medium">Categorize</button>
-                            <button onClick={() => setActiveBuilder('cloze')} className="bg-amber-500 text-white py-3 px-5 rounded-lg shadow hover:bg-amber-600 transition-colors font-medium">Cloze</button>
+                    <div className="p-8 border-2 border-dashed border-white/20 rounded-2xl bg-white/5 backdrop-blur-sm">
+                        <h3 className="text-2xl font-bold mb-8 text-white tracking-tight text-center">Expand Neural Form</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            {/* Column 1: Choice Modules */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-2">Choice Vectors</h4>
+                                <button onClick={() => setActiveBuilder('multiplechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Multiple Choice</button>
+                                <button onClick={() => setActiveBuilder('checkbox')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Checkboxes</button>
+                                <button onClick={() => setActiveBuilder('dropdown')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Dropdown List</button>
+                                <button onClick={() => setActiveBuilder('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
+                            </div>
+
+                            {/* Column 2: Text Inputs */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-xs uppercase tracking-widest text-pink-400 font-bold mb-2">Data Input</h4>
+                                <button onClick={() => setActiveBuilder('shortanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Short Answer</button>
+                                <button onClick={() => setActiveBuilder('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Long Answer</button>
+                                <button onClick={() => setActiveBuilder('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
+                            </div>
+
+                            {/* Column 3: Advanced Cognitive */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2">Cognitive Matrix</h4>
+                                <button onClick={() => setActiveBuilder('comprehension')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Comprehension</button>
+                                <button onClick={() => setActiveBuilder('categorize')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Categorize</button>
+                                <button onClick={() => setActiveBuilder('cloze')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Cloze (Blanks)</button>
+                                <button onClick={() => setActiveBuilder('switch')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Toggle Switch</button>
+                            </div>
+
+                            {/* Column 4: UI Structure */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2">UI Structure</h4>
+                                <button onClick={() => setActiveBuilder('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
+                                <button onClick={() => setActiveBuilder('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
+                                <button onClick={() => setActiveBuilder('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
       
             {/* Footer with Chat Mode */}
-            <div className="mt-12 border-t border-gray-300 pt-6 flex justify-between items-center gap-4">
+            <div className="mt-12 border-t border-white/10 pt-8 flex justify-between items-center gap-4">
                 <button
                     onClick={handleDeleteForm}
                     disabled={isNewForm}
-                    className="py-2 px-5 rounded-lg text-white font-semibold bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="py-2.5 px-6 rounded-xl text-white font-semibold bg-red-600/20 border border-red-500/30 hover:bg-red-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Delete Form
+                    Delete Module
                 </button>
                 <div className="flex justify-end items-center gap-4">
                     <button
                         onClick={handleShare}
                         disabled={isNewForm}
-                        className={`py-2 px-5 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            copied ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-700'
+                        className={`py-2.5 px-6 rounded-xl text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border ${
+                            copied ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-purple-600/20 border-purple-500/30 text-purple-400 hover:bg-purple-600/40'
                         }`}
                     >
-                        {copied ? 'Copied!' : 'Share'}
+                        {copied ? 'Link Copied!' : 'Share Form'}
                     </button>
                     
                     <button
                         onClick={handleChatMode}
                         disabled={isNewForm}
-                        className="py-2 px-5 rounded-lg text-white font-semibold bg-pink-500 hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="py-2.5 px-6 rounded-xl text-pink-400 font-semibold bg-pink-500/20 border border-pink-500/30 hover:bg-pink-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <MessageSquareText size={18} /> Chat Mode
                     </button>
@@ -515,9 +568,9 @@ const FormEditor = () => {
                     <button
                         onClick={handleViewForm}
                         disabled={isNewForm}
-                        className="py-2 px-5 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="py-2.5 px-8 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Preview
+                        Live Preview
                     </button>
                 </div>
             </div>
