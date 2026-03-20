@@ -4,7 +4,6 @@ import { UserButton, useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, FileText, BarChart3, Settings, Sparkles, FolderOpen, PieChart } from 'lucide-react';
 
-// Maps your routes to specific titles, icons, and theme colors
 const getRouteDetails = (pathname) => {
   if (pathname === '/dashboard' || pathname === '/') return { title: 'Command Center', icon: LayoutDashboard, color: 'text-indigo-400' };
   if (pathname.includes('/my-forms')) return { title: 'My Modules', icon: FileText, color: 'text-emerald-400' };
@@ -20,16 +19,16 @@ export default function HorizontalNavbar() {
   const { user } = useUser();
   const { title, icon: Icon, color } = getRouteDetails(location.pathname);
 
-  // Generate today's date for a nice subtle detail
   const dateOptions = { weekday: 'long', month: 'short', day: 'numeric' };
   const today = new Date().toLocaleDateString('en-US', dateOptions);
 
   return (
-    // Adjusted padding to ensure it pushes completely to the left
-    <header className="sticky top-0 z-[60] w-full bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all h-20 flex items-center px-4 md:px-6">
-      <div className="flex justify-between items-center w-full">
+    <header className="sticky top-0 z-[60] w-full bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all h-20 flex items-center">
+      
+      {/* Removed center alignment so it spans the absolute edges. 
+          Added pl-8 so it aligns perfectly above the floating sidebar */}
+      <div className="w-full flex justify-between items-center pr-4 md:pr-8 pl-8 md:pl-10">
         
-        {/* Left Section: Forced to the extreme left */}
         <div className="flex items-center gap-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
@@ -55,9 +54,7 @@ export default function HorizontalNavbar() {
           </div>
         </div>
 
-        {/* Right Section: Minimal User Profile Area */}
         <div className="flex items-center gap-4 sm:gap-6">
-          
           <div className="hidden sm:flex flex-col items-end">
              <span className="text-sm font-bold text-white/90">
                 {user?.firstName ? `Welcome, ${user.firstName}` : 'Welcome back'}
@@ -80,7 +77,6 @@ export default function HorizontalNavbar() {
                />
             </div>
           </div>
-
         </div>
       </div>
     </header>

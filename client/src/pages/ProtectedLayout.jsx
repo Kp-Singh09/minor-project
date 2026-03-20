@@ -5,23 +5,25 @@ import HorizontalNavbar from '../components/HorizontalNavbar';
 
 export default function ProtectedLayout() {
   return (
-    <div className="flex min-h-screen w-full relative">
-      {/* Removed <Scene /> from here because it is now in App.jsx.
-         The stars will now show through from the background layer.
-      */}
-      <aside className="w-24 shrink-0 relative z-[110]">
-        <VerticalSidebar />
-      </aside>
+    // Changed to a vertical flex-col layout
+    <div className="flex flex-col min-h-screen w-full relative">
       
-      <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        <header className="relative z-[90]">
-          <HorizontalNavbar />
-        </header>
+      {/* 1. Navbar moved outside the side-by-side container to span 100% width */}
+      <header className="relative z-[90] w-full">
+        <HorizontalNavbar />
+      </header>
+      
+      {/* 2. Main layout with the sidebar spacer and content */}
+      <div className="flex flex-1 w-full relative">
+        <aside className="w-24 shrink-0 relative z-[110]">
+          <VerticalSidebar />
+        </aside>
         
-        <main className="p-8 flex-1">
+        <main className="flex-1 p-8 min-w-0">
           <Outlet />
         </main>
       </div>
+      
     </div>
   );
 }
