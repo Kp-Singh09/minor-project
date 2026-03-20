@@ -26,6 +26,8 @@ import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import SwitchRenderer from '../components/renderer/SwitchRenderer';
 import EmailRenderer from '../components/renderer/EmailRenderer';
+import TemporalRenderer from '../components/renderer/TemporalRenderer'; // NEW
+import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; // NEW
 
 export default function ScrollRenderer() {
   const { formId } = useParams();
@@ -135,6 +137,8 @@ export default function ScrollRenderer() {
       case 'Paragraph': return <ParagraphRenderer {...commonProps} />;
       case 'Switch': return <SwitchRenderer {...commonProps} />;
       case 'Email': return <EmailRenderer {...commonProps} />;
+      case 'Temporal': return <TemporalRenderer {...commonProps} />; // NEW
+      case 'FileUpload': return <FileUploadRenderer {...commonProps} />; // NEW
       default: return <div className="text-white/50">Unknown Type: {q.type}</div>;
     }
   };
@@ -142,7 +146,6 @@ export default function ScrollRenderer() {
   if (loading || !isLoaded) return <div className="h-screen w-full flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
   if (isLocked) return <AccessGate title={form?.title || 'Secured Assessment'} error={authError} onUnlock={(p) => { setLoading(true); fetchForm(p); }} />;
 
-  // FIXED: Independent counter that only goes up for actual questions
   let moduleCounter = 0;
 
   return (
@@ -162,7 +165,6 @@ export default function ScrollRenderer() {
         {form.questions.map((q) => {
             const isUI = ['Banner', 'Heading', 'Paragraph'].includes(q.type);
             
-            // Only increment the counter if it's NOT a UI element
             if (!isUI) {
                 moduleCounter++;
             }

@@ -1,31 +1,30 @@
-// client/src/components/builder/LongAnswerBuilder.jsx
+// client/src/components/builder/TemporalBuilder.jsx
 import { useState, useEffect } from 'react';
 
-const LongAnswerBuilder = ({ onSave, onCancel, initialData = null }) => {
+const TemporalBuilder = ({ onSave, onCancel, initialData = null }) => {
   const [text, setText] = useState('');
 
   useEffect(() => {
     if (initialData) {
       const data = initialData.content || initialData;
-      setText(data.question || data.text || 'Enter your text prompt here...');
-    } else { setText('Enter your text prompt here...'); }
+      setText(data.question || data.text || 'Select a Date and Time');
+    } else { setText('Select a Date and Time'); }
   }, [initialData]);
 
   const handleSave = () => {
-    // We keep the type as 'LongAnswer' so we don't break existing database entries
-    onSave({ _id: initialData?._id, type: 'LongAnswer', content: { question: text } });
+    onSave({ _id: initialData?._id, type: 'Temporal', content: { question: text } });
   };
 
   return (
     <div className="p-8 shadow-2xl animate-fadeIn bg-slate-900 text-white rounded-xl border border-pink-500/20 relative">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-rose-500 rounded-t-xl"></div>
-      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Text Response</h3>
+      <h3 className="text-xl font-bold mb-6 pb-4 border-b border-white/10 text-white tracking-tight">Edit Temporal Node</h3>
       
-      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Prompt / Question</label>
+      <label className="block font-medium mb-2 text-white/70 text-sm uppercase tracking-wider">Prompt Text</label>
       <input
         type="text"
         className="w-full p-4 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent focus:outline-none bg-white/5 border border-white/10 text-white placeholder-white/30 transition-all font-medium"
-        placeholder="E.g., Please describe your experience..."
+        placeholder="E.g., When are you available for an interview?"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
@@ -37,4 +36,4 @@ const LongAnswerBuilder = ({ onSave, onCancel, initialData = null }) => {
     </div>
   );
 };
-export default LongAnswerBuilder;
+export default TemporalBuilder;

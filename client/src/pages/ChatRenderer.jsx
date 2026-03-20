@@ -7,9 +7,7 @@ import axios from '../api/axiosConfig';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
 
-// Reusing specific renderers for complex inputs inside chat
-import MultipleChoiceRenderer from '../components/renderer/MultipleChoiceRenderer';
-import ShortAnswerRenderer from '../components/renderer/ShortAnswerRenderer';
+import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; // NEW
 
 export default function ChatRenderer() {
   const { formId } = useParams();
@@ -19,20 +17,18 @@ export default function ChatRenderer() {
 
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState([]); // { id, sender: 'bot'|'user', text, component, type }
+  const [messages, setMessages] = useState([]); 
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isTyping, setIsTyping] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
   const [textInput, setTextInput] = useState("");
 
-  // 1. Initialize & Fetch
   useEffect(() => {
     const fetchForm = async () => {
       try {
         const res = await axios.get(`/api/forms/${formId}`);
         setForm(res.data);
-        // Start the conversation
         addBotMessage(`Welcome to **${res.data.title}**. I am your neural assessment guide.`);
         setTimeout(() => processQuestion(0, res.data), 1500);
       } catch (err) {
@@ -44,17 +40,13 @@ export default function ChatRenderer() {
     fetchForm();
   }, [formId]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // 2. Conversation Logic
   const addBotMessage = (text, component = null) => {
     setIsTyping(true);
     setInputDisabled(true);
-    
-    // Simulate thinking delay based on text length
     const delay = Math.min(1000, text.length * 20) + 500;
 
     setTimeout(() => {
@@ -80,11 +72,7 @@ export default function ChatRenderer() {
     }
 
     const question = formData.questions[index];
-    
-    // Construct the prompt
     let prompt = question.content?.question || "Question";
-    
-    // Render specific UI based on type
     let interactionUI = null;
 
     if (question.type === 'MultipleChoice' || question.type === 'PictureChoice') {
@@ -110,10 +98,42 @@ export default function ChatRenderer() {
             </div>
         )
     }
-    // Complex types like Categorize/Cloze might need simplified versions or just be skipped in Chat Mode
+    // --- NEW: Custom Temporal Mini-UI for Chat ---
+    else if (question.type === 'Temporal') {
+        interactionUI = (
+            <div className="mt-3 p-4 bg-slate-900 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm">
+                <input 
+                    type="datetime-local" 
+                    id={`temporal-${question._id}`}
+                    className="w-full p-3 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" 
+                />
+                <button 
+                    onClick={() => {
+                        const val = document.getElementById(`temporal-${question._id}`).value;
+                        if(val) handleAnswer(question._id, val, val);
+                        else toast.error("Please select a date and time");
+                    }}
+                    className="py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 font-medium text-sm transition-colors"
+                >
+                    Confirm Date & Time
+                </button>
+            </div>
+        );
+    }
+    // --- NEW: Render the FileUpload directly in the chat stream ---
+    else if (question.type === 'FileUpload') {
+        interactionUI = (
+            <div className="mt-3 p-4 bg-slate-900 rounded-xl border border-white/10 max-w-sm">
+                <FileUploadRenderer 
+                    question={question} 
+                    onAnswerChange={(qId, val) => handleAnswer(qId, val, "Asset Uploaded Successfully")} 
+                    savedAnswer={answers[question._id]?.answer} 
+                />
+            </div>
+        );
+    }
     else if (['Categorize', 'Cloze', 'Comprehension'].includes(question.type)) {
        prompt += " *(Note: This complex question type is adapted for chat)*";
-       // Fallback to text input for now or specific mini-renderers
     }
 
     addBotMessage(prompt, interactionUI);
@@ -121,16 +141,12 @@ export default function ChatRenderer() {
   };
 
   const handleAnswer = (questionId, value, displayLabel) => {
-    // 1. Show user's choice
     addUserMessage(displayLabel || value);
-    
-    // 2. Save Answer
     setAnswers(prev => ({
       ...prev,
       [questionId]: { questionId, answer: value }
     }));
 
-    // 3. Move Next
     const nextStep = currentStep + 1;
     setTimeout(() => processQuestion(nextStep), 500);
   };
@@ -159,7 +175,7 @@ export default function ChatRenderer() {
             userEmail: user.primaryEmailAddress.emailAddress,
             username: user.fullName,
             answers: Object.values(answers),
-            integrityFlags: [] // Chat mode is currently trust-based
+            integrityFlags: []
         };
         
         await axios.post('/api/responses', payload);
@@ -224,7 +240,6 @@ export default function ChatRenderer() {
                         {msg.text}
                     </div>
                     
-                    {/* Interactive Component (Buttons, etc.) */}
                     {msg.component && (
                         <motion.div 
                             initial={{ opacity: 0 }}

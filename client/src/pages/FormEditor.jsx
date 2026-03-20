@@ -3,14 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from '../api/axiosConfig'; 
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Trash2, Radio, MessageSquareText, Users, Settings } from 'lucide-react'; 
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { Sparkles, Trash2, Radio, Users, Settings, GripVertical, AlertCircle } from 'lucide-react'; 
 import toast from 'react-hot-toast';
 
 // Socket
 import { initSocket, disconnectSocket } from '../api/socket';
 
-// --- ALL 14 BUILDERS IMPORTED ---
+// --- ALL BUILDERS IMPORTED ---
 import ComprehensionBuilder from '../components/builder/ComprehensionBuilder';
 import CategorizeBuilder from '../components/builder/CategorizeBuilder';
 import ClozeBuilder from '../components/builder/ClozeBuilder';
@@ -25,12 +25,63 @@ import HeadingBuilder from '../components/builder/HeadingBuilder';
 import ParagraphBuilder from '../components/builder/ParagraphBuilder';
 import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
 import SwitchBuilder from '../components/builder/SwitchBuilder';
+import TemporalBuilder from '../components/builder/TemporalBuilder'; // NEW
+import FileUploadBuilder from '../components/builder/FileUploadBuilder'; // NEW
 
 // Modals
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
 import TeamModal from '../components/FormCreator/TeamModal'; 
 import SettingsModal from '../components/FormCreator/SettingsModal'; 
 import AdvancedShareModal from '../components/FormCreator/AdvancedShareModal';
+
+// --- Draggable Item Component ---
+const DraggableQuestionItem = ({ question, onEdit, onDelete }) => {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={question}
+            dragListener={false} 
+            dragControls={controls} 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-white/5 backdrop-blur-md p-6 rounded-xl border border-white/10 shadow-lg hover:border-indigo-500/50 transition-all relative overflow-hidden group select-none"
+        >
+            <div className="flex justify-between items-center">
+                <div>
+                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2 font-mono">
+                        {question.type}
+                    </p>
+                    <p className="text-lg font-medium text-white/90 truncate max-w-xl">
+                        {question.type === 'Cloze' ? 'Fill in the blanks passage' :
+                         question.type === 'Categorize' ? 'Categorization Matrix' :
+                         question.type === 'Banner' ? 'UI Banner' :
+                         question.type === 'Heading' ? question.content?.text :
+                         question.type === 'Paragraph' ? question.content?.text :
+                         question.content?.question || "Module Content"}
+                    </p>
+                </div>
+                
+                <div className="flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity items-center">
+                    <div
+                        onPointerDown={(e) => controls.start(e)}
+                        className="cursor-grab active:cursor-grabbing p-2 text-white/40 hover:text-white transition-colors"
+                        title="Drag to reorder"
+                        style={{ touchAction: 'none' }} 
+                    >
+                        <GripVertical size={20} />
+                    </div>
+
+                    <button onClick={() => onEdit(question)} className="text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/20 py-2 px-5 rounded-lg font-medium transition-colors">Edit</button>
+                    <button onClick={() => onDelete(question._id)} className="text-sm bg-red-500/20 text-red-300 hover:bg-red-500/40 border border-red-500/20 py-2 px-5 rounded-lg font-medium flex items-center gap-2 transition-colors">
+                        <Trash2 size={16} /> Delete
+                    </button>
+                </div>
+            </div>
+        </Reorder.Item>
+    );
+};
 
 const FormEditor = () => {
     const { formId } = useParams();
@@ -43,20 +94,17 @@ const FormEditor = () => {
     const [loading, setLoading] = useState(!isNewForm);
     const [error, setError] = useState(null);
     
-    // Editor States
     const [activeBuilder, setActiveBuilder] = useState(null);
     const [editingQuestion, setEditingQuestion] = useState(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [currentTitle, setCurrentTitle] = useState("");
     const [copied, setCopied] = useState(false);
     
-    // Modal States
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [teamModalOpen, setTeamModalOpen] = useState(false);
     const [settingsModalOpen, setSettingsModalOpen] = useState(false); 
     const [advancedShareOpen, setAdvancedShareOpen] = useState(false);
 
-    // Real-Time States
     const [collaborators, setCollaborators] = useState([]);
     const [teamList, setTeamList] = useState([]);
     const socketRef = useRef(null);
@@ -64,12 +112,10 @@ const FormEditor = () => {
 
     const hasUnsavedChanges = form && currentTitle !== form.title;
 
-
     const handlePreviewScroll = () => { if (!isNewForm) window.open(`/form/${formId}/scroll`, '_blank'); };
     const handlePreviewFocus = () => { if (!isNewForm) window.open(`/form/${formId}/focus`, '_blank'); };
     const handlePreviewChat = () => { if (!isNewForm) window.open(`/form/${formId}/chat`, '_blank'); };
 
-    // 1. Initial Fetch
     useEffect(() => {
         const fetchForm = async () => {
             try {
@@ -101,7 +147,6 @@ const FormEditor = () => {
         }
     }, [formId, isNewForm, userId]);
 
-    // 2. SOCKET CONNECTION (The Neural Link)
     useEffect(() => {
         if (!formId || isNewForm || !user) return;
 
@@ -153,18 +198,23 @@ const FormEditor = () => {
             }
         });
 
+        socket.on("questions_reordered", ({ questions, userId: senderId }) => {
+            if (senderId !== userId) {
+                setForm(prev => ({ ...prev, questions }));
+            }
+        });
+
         return () => {
             socket.off("user_joined");
             socket.off("form_title_updated");
             socket.off("question_added");
             socket.off("question_deleted");
             socket.off("question_updated");
+            socket.off("questions_reordered");
             disconnectSocket();
         };
     }, [formId, isNewForm, user, userId]);
 
-
-    // 3. Handlers
     const handleTitleSave = async () => {
         if (!hasUnsavedChanges && !isNewForm) {
             setIsEditingTitle(false);
@@ -274,6 +324,26 @@ const FormEditor = () => {
         }
     };
 
+    const handleReorder = async (newOrder) => {
+        setForm(prev => ({ ...prev, questions: newOrder }));
+
+        if (!isNewForm) {
+            try {
+                const questionIds = newOrder.map(q => q._id);
+                await axios.put(`/api/forms/${formId}`, { questions: questionIds });
+                
+                socketRef.current?.emit("reorder_questions", { 
+                    formId, 
+                    questions: newOrder, 
+                    userId 
+                });
+            } catch (err) {
+                console.error("Reorder error:", err);
+                toast.error("Failed to save new order");
+            }
+        }
+    };
+
     const handleAiSuccess = (newFormId) => {
         navigate(`/editor/${newFormId}`);
         window.location.reload(); 
@@ -299,15 +369,6 @@ const FormEditor = () => {
         } catch (err) { toast.error('Failed to upload header.'); }
     };
 
-    const handleShare = () => {
-        if (isNewForm) return;
-        const shareLink = `${window.location.origin}/form/${formId}`;
-        navigator.clipboard.writeText(shareLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); toast.success("Link copied"); });
-    };
-
-    const handleViewForm = () => { if (!isNewForm) window.open(`/form/${formId}`, '_blank'); };
-    const handleChatMode = () => { if (!isNewForm) window.open(`/form/${formId}/chat`, '_blank'); };
-
     const handleDeleteForm = async () => {
         if (isNewForm) return;
         if (window.confirm(`Delete "${form.title}"?`)) {
@@ -316,7 +377,7 @@ const FormEditor = () => {
         }
     };
 
-    // --- RENDER ALL 14 BUILDERS ---
+    // --- RENDER BUILDERS ---
     const renderBuilder = () => {
         const type = editingQuestion ? editingQuestion.type.toLowerCase() : activeBuilder;
         const onCancel = () => { setActiveBuilder(null); setEditingQuestion(null); };
@@ -329,10 +390,13 @@ const FormEditor = () => {
             case 'dropdown': return <DropdownBuilder {...props} />;
             case 'picturechoice': return <PictureChoiceBuilder {...props} />;
             
-            case 'shortanswer': return <ShortAnswerBuilder {...props} />;
+            case 'shortanswer': return <ShortAnswerBuilder {...props} />; // Preserved for editing legacy ones
             case 'longanswer': return <LongAnswerBuilder {...props} />;
             case 'email': return <EmailBuilder {...props} />;
             
+            case 'temporal': return <TemporalBuilder {...props} />;
+            case 'fileupload': return <FileUploadBuilder {...props} />;
+
             case 'comprehension': return <ComprehensionBuilder {...props} />;
             case 'categorize': return <CategorizeBuilder {...props} />;
             case 'cloze': return <ClozeBuilder {...props} />;
@@ -379,7 +443,7 @@ const FormEditor = () => {
                 onUpdate={handleSettingsUpdate}
             />
 
-            {/* Header Card - Dark Neural Theme */}
+            {/* Header Card */}
             <div className="bg-white/5 backdrop-blur-lg p-6 rounded-2xl mb-8 border border-white/10 shadow-2xl shadow-black/50 border-t-4 border-t-indigo-500 relative">
                 
                 <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -458,42 +522,18 @@ const FormEditor = () => {
             </div>
 
             {/* Questions List */}
-            <div className="space-y-6">
+            <Reorder.Group axis="y" values={form.questions} onReorder={handleReorder} className="space-y-6">
                 <AnimatePresence>
-                    {form.questions.map((question, index) => (
-                        <motion.div 
-                            key={question._id}
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="bg-white/5 backdrop-blur-md p-6 rounded-xl border border-white/10 shadow-lg hover:border-indigo-500/50 transition-all relative overflow-hidden group"
-                        >
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2 font-mono">
-                                        {question.type}
-                                    </p>
-                                    <p className="text-lg font-medium text-white/90 truncate max-w-xl">
-                                        {/* Dynamic content rendering based on type */}
-                                        {question.type === 'Cloze' ? 'Fill in the blanks passage' :
-                                         question.type === 'Categorize' ? 'Categorization Matrix' :
-                                         question.type === 'Banner' ? 'UI Banner' :
-                                         question.type === 'Heading' ? question.content?.text :
-                                         question.type === 'Paragraph' ? question.content?.text :
-                                         question.content?.question || "Module Content"}
-                                    </p>
-                                </div>
-                                <div className="flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setEditingQuestion(question)} className="text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/20 py-2 px-5 rounded-lg font-medium transition-colors">Edit</button>
-                                    <button onClick={() => handleDeleteQuestion(question._id)} className="text-sm bg-red-500/20 text-red-300 hover:bg-red-500/40 border border-red-500/20 py-2 px-5 rounded-lg font-medium flex items-center gap-2 transition-colors">
-                                        <Trash2 size={16} /> Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
+                    {form.questions.map((question) => (
+                        <DraggableQuestionItem 
+                            key={question._id} 
+                            question={question} 
+                            onEdit={setEditingQuestion} 
+                            onDelete={handleDeleteQuestion} 
+                        />
                     ))}
                 </AnimatePresence>
-            </div>
+            </Reorder.Group>
 
             {/* Builder Selection Grid */}
             <div className="mt-10">
@@ -515,12 +555,13 @@ const FormEditor = () => {
                                 <button onClick={() => setActiveBuilder('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
                             </div>
 
-                            {/* Column 2: Text Inputs */}
+                            {/* Column 2: Data Input */}
                             <div className="flex flex-col gap-3">
                                 <h4 className="text-xs uppercase tracking-widest text-pink-400 font-bold mb-2">Data Input</h4>
-                                <button onClick={() => setActiveBuilder('shortanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Short Answer</button>
-                                <button onClick={() => setActiveBuilder('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Long Answer</button>
+                                <button onClick={() => setActiveBuilder('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Text Response</button>
                                 <button onClick={() => setActiveBuilder('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
+                                <button onClick={() => setActiveBuilder('temporal')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Temporal Node</button>
+                                <button onClick={() => setActiveBuilder('fileupload')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Asset Uplink</button>
                             </div>
 
                             {/* Column 3: Advanced Cognitive */}
@@ -538,20 +579,31 @@ const FormEditor = () => {
                                 <button onClick={() => setActiveBuilder('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
                                 <button onClick={() => setActiveBuilder('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
                                 <button onClick={() => setActiveBuilder('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
+                                
+                                <div className="relative group bg-amber-900/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 cursor-help py-2.5 px-4 transition-all hover:bg-amber-500/10">
+                                    <AlertCircle className="text-amber-500/70 shrink-0" size={16} />
+                                    <span className="text-xs text-amber-500/80 font-mono uppercase tracking-widest font-bold">UI Notice</span>
+                                    
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-4 bg-slate-900 border border-amber-500/30 rounded-xl shadow-[0_10px_40px_-10px_rgba(245,158,11,0.3)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                        <p className="text-[10px] text-amber-400/90 leading-relaxed font-mono uppercase tracking-wide text-center">
+                                            UI modules are optimized for <strong className="text-amber-300">Scroll View</strong>. Adaptive Focus & Chat modes bypass static structure.
+                                        </p>
+                                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-b border-r border-amber-500/30 transform rotate-45"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )}
             </div>
       
-            {/* Footer with Chat Mode */}
             <AdvancedShareModal 
                 isOpen={advancedShareOpen} 
                 onClose={() => setAdvancedShareOpen(false)} 
                 formId={formId} 
             />
 
-            {/* Updated Footer */}
+            {/* Footer */}
             <div className="mt-12 border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
                 
                 <button
@@ -564,7 +616,6 @@ const FormEditor = () => {
 
                 <div className="flex flex-col items-end gap-4 w-full md:w-auto">
                     
-                    {/* Explicit Creator Previews */}
                     <div className="flex gap-2">
                         <span className="text-xs uppercase tracking-widest text-white/30 font-bold flex items-center mr-2">Creator Previews:</span>
                         <button onClick={handlePreviewScroll} disabled={isNewForm} className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-500/40 disabled:opacity-50 transition-colors">
@@ -578,7 +629,6 @@ const FormEditor = () => {
                         </button>
                     </div>
 
-                    {/* Advanced Share Button */}
                     <button
                         onClick={() => setAdvancedShareOpen(true)}
                         disabled={isNewForm}

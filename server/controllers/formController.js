@@ -1,7 +1,7 @@
 // server/controllers/formController.js
 import Form from '../models/Form.js';
 import FormVersion from '../models/FormVersion.js';
-import Question from '../models/Question.js'; // <--- NEW IMPORT REQUIRED
+import Question from '../models/Question.js';
 
 // --- CREATE FORM ---
 export const createForm = async (req, res) => {
@@ -116,7 +116,10 @@ export const deleteForm = async (req, res) => {
 export const getUserForms = async (req, res) => {
     try {
         const { userId } = req.params;
-        const forms = await Form.find({ creatorId: userId }).sort({ createdAt: -1 });
+        // FIX: Added .populate('questions') so the frontend FormCard can read the question type
+        const forms = await Form.find({ creatorId: userId })
+            .populate('questions')
+            .sort({ createdAt: -1 });
         res.status(200).json(forms);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching user forms', error });

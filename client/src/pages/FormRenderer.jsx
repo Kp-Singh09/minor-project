@@ -29,6 +29,8 @@ import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import SwitchRenderer from '../components/renderer/SwitchRenderer';
 import EmailRenderer from '../components/renderer/EmailRenderer';
+import TemporalRenderer from '../components/renderer/TemporalRenderer'; // NEW
+import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; // NEW
 
 export default function FormRenderer() {
   const { formId } = useParams();
@@ -50,7 +52,6 @@ export default function FormRenderer() {
   // History stack to track jumps
   const [historyStack, setHistoryStack] = useState([0]);
 
-  // 1. Fetch Form
   useEffect(() => {
     fetchForm();
   }, [formId]);
@@ -90,7 +91,6 @@ export default function FormRenderer() {
     fetchForm(password);
   };
 
-  // 2. Proctoring Logic 
   const handleViolation = (type) => {
     if (!loading && form && !isLocked) {
       setIntegrityFlags(prev => [...prev, { type, timestamp: new Date() }]);
@@ -131,12 +131,10 @@ export default function FormRenderer() {
     };
   }, [form, loading, isLocked]);
 
-  // 3. Answer Handler
   const handleAnswer = (questionId, val) => {
     setAnswers(prev => ({ ...prev, [questionId]: { questionId, answer: val } }));
   };
 
-  // 4. THE LOGIC ENGINE 
   const calculateNextStep = () => {
     const currentQ = form.questions[currentStep];
     const currentAnsObj = answers[currentQ._id];
@@ -213,6 +211,8 @@ export default function FormRenderer() {
       case 'Paragraph': return <ParagraphRenderer {...commonProps} />;
       case 'Switch': return <SwitchRenderer {...commonProps} />;
       case 'Email': return <EmailRenderer {...commonProps} />;
+      case 'Temporal': return <TemporalRenderer {...commonProps} />;
+      case 'FileUpload': return <FileUploadRenderer {...commonProps} />;
       default: return <div className="text-white/50">Unknown Question Type: {q.type}</div>;
     }
   };
@@ -261,7 +261,6 @@ export default function FormRenderer() {
             transition={{ duration: 0.4, ease: "circOut" }}
             className="w-full"
           >
-             {/* Deep Dark Container for Renderers */}
              <div className="p-8 md:p-12 shadow-2xl backdrop-blur-2xl rounded-2xl bg-white/5 border border-white/10">
                 <div className="flex justify-between items-start mb-8">
                   <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-xs uppercase tracking-widest">

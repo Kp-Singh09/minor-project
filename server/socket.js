@@ -51,6 +51,11 @@ export const initSocket = (httpServer) => {
       socket.to(formId).emit("question_added", { question, userId });
     });
 
+    // Listen for reorder event
+    socket.on("reorder_questions", ({ formId, questions, userId }) => {
+      socket.to(formId).emit("questions_reordered", { questions, userId });
+    });
+
     // Cursor/Focus Presence
     socket.on("focus_field", ({ formId, fieldId, user }) => {
       socket.to(formId).emit("remote_focus", { fieldId, user });
