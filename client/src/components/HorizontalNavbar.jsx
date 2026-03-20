@@ -1,109 +1,88 @@
 // client/src/components/HorizontalNavbar.jsx
-import { useState } from 'react';
-import { UserButton } from '@clerk/clerk-react';
-import { Search, Bell, Share2, Shield, Clock, Lock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GlassButton } from './ui/GlassButton';
+import { useLocation } from 'react-router-dom';
+import { UserButton, useUser } from '@clerk/clerk-react';
+import { motion } from 'framer-motion';
+import { LayoutDashboard, FileText, BarChart3, Settings, Sparkles, FolderOpen, PieChart } from 'lucide-react';
+
+// Maps your routes to specific titles, icons, and theme colors
+const getRouteDetails = (pathname) => {
+  if (pathname === '/dashboard' || pathname === '/') return { title: 'Command Center', icon: LayoutDashboard, color: 'text-indigo-400' };
+  if (pathname.includes('/my-forms')) return { title: 'My Modules', icon: FileText, color: 'text-emerald-400' };
+  if (pathname.includes('/analytics')) return { title: 'Analytics Engine', icon: BarChart3, color: 'text-pink-400' };
+  if (pathname.includes('/stats')) return { title: 'Global Stats', icon: PieChart, color: 'text-amber-400' };
+  if (pathname.includes('/submissions')) return { title: 'Submissions Hub', icon: FolderOpen, color: 'text-blue-400' };
+  if (pathname.includes('/editor')) return { title: 'Neural Editor', icon: Sparkles, color: 'text-purple-400' };
+  return { title: 'Workspace', icon: Settings, color: 'text-gray-400' };
+};
 
 export default function HorizontalNavbar() {
-  const [showShareModal, setShowShareModal] = useState(false);
+  const location = useLocation();
+  const { user } = useUser();
+  const { title, icon: Icon, color } = getRouteDetails(location.pathname);
+
+  // Generate today's date for a nice subtle detail
+  const dateOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+  const today = new Date().toLocaleDateString('en-US', dateOptions);
 
   return (
-    <nav className="h-20 px-8 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md bg-[#050505]/50 border-b border-white/5">
-      <div className="relative w-96 group">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search forms, analytics, or folders..." 
-          className="w-full glass-input pl-10 bg-white/5 border-white/5 focus:border-indigo-500/50"
-        />
-      </div>
-
-      <div className="flex items-center gap-6">
-        <button 
-          onClick={() => setShowShareModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
-        >
-          <Share2 size={16} /> Share
-        </button>
-
-        <button className="relative p-2 text-white/40 hover:text-white transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full border-2 border-[#050505]" />
-        </button>
-        <div className="h-8 w-px bg-white/10" />
-        <UserButton appearance={{ elements: { userButtonAvatarBox: 'w-10 h-10 border border-white/10' } }} />
-      </div>
-
-      {/* Share & Security Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-lg p-8 border-white/10 relative"
+    // Adjusted padding to ensure it pushes completely to the left
+    <header className="sticky top-0 z-[60] w-full bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all h-20 flex items-center px-4 md:px-6">
+      <div className="flex justify-between items-center w-full">
+        
+        {/* Left Section: Forced to the extreme left */}
+        <div className="flex items-center gap-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            key={title}
+            className={`p-3 rounded-xl bg-white/5 border border-white/10 shadow-inner ${color}`}
+          >
+            <Icon size={22} />
+          </motion.div>
+          
+          <div className="flex flex-col">
+            <motion.h1 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              key={`h1-${title}`}
+              className="text-xl font-extrabold text-white tracking-tight"
             >
-              <h3 className="text-2xl font-bold mb-6">Access & Security</h3>
-              
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 glass-card border-white/5">
-                  <div className="flex items-center gap-3">
-                    <Lock className="text-indigo-400" size={20} />
-                    <div>
-                      <p className="text-sm font-semibold">Password Protection</p>
-                      <p className="text-[10px] text-white/40">Require a password to view this form</p>
-                    </div>
-                  </div>
-                  <input type="checkbox" className="accent-indigo-500" />
-                </div>
-
-                <div className="flex items-center justify-between p-4 glass-card border-white/5">
-                  <div className="flex items-center gap-3">
-                    <Clock className="text-indigo-400" size={20} />
-                    <div>
-                      <p className="text-sm font-semibold">Self-Destruct (TTL)</p>
-                      <p className="text-[10px] text-white/40">Form link expires after a set date</p>
-                    </div>
-                  </div>
-                  <input type="date" className="glass-input text-xs" />
-                </div>
-
-                <div className="p-4 glass-card border-white/5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Shield className="text-indigo-400" size={20} />
-                    <p className="text-sm font-semibold">Role-Based Permissions</p>
-                  </div>
-                  <div className="space-y-2">
-                    {['Admin', 'Editor', 'Viewer'].map(role => (
-                      <div key={role} className="flex items-center justify-between text-xs text-white/60">
-                        <span>{role} Access</span>
-                        <input type="checkbox" defaultChecked={role === 'Viewer'} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 flex gap-3">
-                <GlassButton 
-                  onClick={() => setShowShareModal(false)}
-                  className="flex-1 bg-indigo-500 text-white border-none py-3"
-                >
-                  Apply Settings
-                </GlassButton>
-                <button 
-                  onClick={() => setShowShareModal(false)}
-                  className="flex-1 py-3 text-white/40 hover:text-white transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
+              {title}
+            </motion.h1>
+            <p className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-white/40">
+              {today}
+            </p>
           </div>
-        )}
-      </AnimatePresence>
-    </nav>
+        </div>
+
+        {/* Right Section: Minimal User Profile Area */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          
+          <div className="hidden sm:flex flex-col items-end">
+             <span className="text-sm font-bold text-white/90">
+                {user?.firstName ? `Welcome, ${user.firstName}` : 'Welcome back'}
+             </span>
+             <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400/80 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                System Online
+             </span>
+          </div>
+
+          <div className="relative p-[2px] rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-shadow">
+            <div className="bg-slate-950 rounded-full p-0.5 flex items-center justify-center">
+               <UserButton 
+                 afterSignOutUrl="/" 
+                 appearance={{
+                   elements: {
+                     avatarBox: "w-9 h-9 sm:w-10 sm:h-10 border-2 border-slate-950 rounded-full"
+                   }
+                 }}
+               />
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </header>
   );
 }

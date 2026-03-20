@@ -7,13 +7,14 @@ import axios from '../api/axiosConfig';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
 
-import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; // NEW
+import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; 
 
 export default function ChatRenderer() {
   const { formId } = useParams();
   const { user, isLoaded } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const hasInitialized = useRef(false); // FIX 1: Prevent double-execution in Strict Mode
 
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,12 +26,24 @@ export default function ChatRenderer() {
   const [textInput, setTextInput] = useState("");
 
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const fetchForm = async () => {
       try {
         const res = await axios.get(`/api/forms/${formId}`);
-        setForm(res.data);
-        addBotMessage(`Welcome to **${res.data.title}**. I am your neural assessment guide.`);
-        setTimeout(() => processQuestion(0, res.data), 1500);
+        
+        // FIX 2: Filter out UI structure blocks
+        const nonUiQuestions = res.data.questions.filter(
+            q => !['Banner', 'Heading', 'Paragraph'].includes(q.type)
+        );
+        const processedForm = { ...res.data, questions: nonUiQuestions };
+        
+        setForm(processedForm);
+
+        addBotMessage(`Welcome to **${processedForm.title}**. I am your neural assessment guide.`);
+        setTimeout(() => processQuestion(0, processedForm), 1500);
+
       } catch (err) {
         toast.error("Failed to load neural link.");
       } finally {
@@ -98,7 +111,6 @@ export default function ChatRenderer() {
             </div>
         )
     }
-    // --- NEW: Custom Temporal Mini-UI for Chat ---
     else if (question.type === 'Temporal') {
         interactionUI = (
             <div className="mt-3 p-4 bg-slate-900 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm">
@@ -120,7 +132,6 @@ export default function ChatRenderer() {
             </div>
         );
     }
-    // --- NEW: Render the FileUpload directly in the chat stream ---
     else if (question.type === 'FileUpload') {
         interactionUI = (
             <div className="mt-3 p-4 bg-slate-900 rounded-xl border border-white/10 max-w-sm">

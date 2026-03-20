@@ -14,14 +14,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State for the Neural Live Search
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchUserForms = async () => {
       if (!user) return;
       try {
-        // Fetching data using the established repository link
         const response = await api.get(`/api/forms/user/${user.id}`);
         setForms(response.data);
         setError(null);
@@ -32,11 +30,9 @@ export default function DashboardPage() {
         setIsLoading(false);
       }
     };
-
     fetchUserForms();
   }, [user]);
 
-  // Logic to filter modules in real-time based on the search query
   const filteredForms = useMemo(() => {
     return forms.filter(form => 
       form.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -58,22 +54,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto pb-24 relative z-50">
-      {/* Dashboard Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
+    <div className="max-w-7xl mx-auto pb-24 relative z-50 pt-8">
+      {/* Dashboard Header: Removed redundant welcome text */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
         <div className="flex-1 w-full">
-          <motion.h2 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-5xl font-extrabold tracking-tighter text-white mb-3"
-          >
-            Welcome, <span className="text-indigo-500">{user?.firstName || 'Agent'}</span>
-          </motion.h2>
-          
-          <div className="flex flex-col md:flex-row md:items-center gap-6 mt-6">
-            <div className="flex items-center gap-3 text-white/40 font-medium whitespace-nowrap">
-              <Activity size={16} className="text-indigo-400" />
-              <span>Repository status: {forms.length} active modules.</span>
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            
+            {/* Upgraded Repository Status Box */}
+            <div className="flex items-center gap-3 text-white/40 font-medium whitespace-nowrap bg-white/5 px-4 py-3 rounded-xl border border-white/10">
+              <Activity size={18} className="text-indigo-400" />
+              <span>Repository status: <strong className="text-white">{forms.length}</strong> active modules</span>
             </div>
 
             {/* Neural Search Input Field */}
@@ -86,7 +76,7 @@ export default function DashboardPage() {
                 placeholder="Search neural modules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.08] transition-all font-mono"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.08] transition-all font-mono shadow-inner"
               />
             </div>
           </div>
@@ -96,7 +86,7 @@ export default function DashboardPage() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/editor/new')}
-          className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-tighter hover:bg-indigo-50 transition-all shadow-2xl shadow-white/10 z-[100] relative whitespace-nowrap"
+          className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-tighter hover:bg-indigo-50 transition-all shadow-xl shadow-white/5 z-[100] relative whitespace-nowrap"
         >
           <Plus size={20} strokeWidth={3} />
           Create New Form
@@ -115,7 +105,7 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Main Content Grid with Animation Presence */}
+      {/* Main Content Grid */}
       <AnimatePresence mode='popLayout'>
         {filteredForms.length === 0 ? (
           <motion.div 
@@ -123,7 +113,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="p-24 rounded-[40px] border border-white/5 flex flex-col items-center text-center bg-white/[0.02] backdrop-blur-3xl shadow-2xl"
+            className="p-24 rounded-[40px] border border-white/5 flex flex-col items-center text-center bg-white/[0.02] backdrop-blur-3xl shadow-2xl mt-8"
           >
             <div className="w-24 h-24 bg-indigo-500/10 rounded-[32px] flex items-center justify-center mb-10 border border-indigo-500/20 shadow-inner">
               <Layout className="text-indigo-400" size={40} />

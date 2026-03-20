@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from '../api/axiosConfig'; 
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { Sparkles, Trash2, Radio, Users, Settings, GripVertical, AlertCircle } from 'lucide-react'; 
+import { Sparkles, Trash2, Radio, Users, Settings, GripVertical, AlertCircle, LayoutList, Maximize, MessageSquare, Share2 } from 'lucide-react'; 
 import toast from 'react-hot-toast';
 
 // Socket
@@ -25,8 +25,8 @@ import HeadingBuilder from '../components/builder/HeadingBuilder';
 import ParagraphBuilder from '../components/builder/ParagraphBuilder';
 import PictureChoiceBuilder from '../components/builder/PictureChoiceBuilder';
 import SwitchBuilder from '../components/builder/SwitchBuilder';
-import TemporalBuilder from '../components/builder/TemporalBuilder'; // NEW
-import FileUploadBuilder from '../components/builder/FileUploadBuilder'; // NEW
+import TemporalBuilder from '../components/builder/TemporalBuilder';
+import FileUploadBuilder from '../components/builder/FileUploadBuilder';
 
 // Modals
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
@@ -147,8 +147,9 @@ const FormEditor = () => {
         }
     }, [formId, isNewForm, userId]);
 
+    // OPTIMIZATION: Only connect to Socket if teamList has members
     useEffect(() => {
-        if (!formId || isNewForm || !user) return;
+        if (!formId || isNewForm || !user || teamList.length === 0) return;
 
         socketRef.current = initSocket();
         const socket = socketRef.current;
@@ -212,8 +213,9 @@ const FormEditor = () => {
             socket.off("question_updated");
             socket.off("questions_reordered");
             disconnectSocket();
+            socketRef.current = null;
         };
-    }, [formId, isNewForm, user, userId]);
+    }, [formId, isNewForm, user, userId, teamList.length]);
 
     const handleTitleSave = async () => {
         if (!hasUnsavedChanges && !isNewForm) {
@@ -390,7 +392,7 @@ const FormEditor = () => {
             case 'dropdown': return <DropdownBuilder {...props} />;
             case 'picturechoice': return <PictureChoiceBuilder {...props} />;
             
-            case 'shortanswer': return <ShortAnswerBuilder {...props} />; // Preserved for editing legacy ones
+            case 'shortanswer': return <ShortAnswerBuilder {...props} />;
             case 'longanswer': return <LongAnswerBuilder {...props} />;
             case 'email': return <EmailBuilder {...props} />;
             
@@ -483,6 +485,7 @@ const FormEditor = () => {
                                 onChange={(e) => setCurrentTitle(e.target.value)}
                                 onBlur={handleTitleSave}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleTitleSave(); }}
+                                onFocus={(e) => e.target.select()}
                                 className="text-4xl font-bold bg-transparent border-b-2 border-indigo-500/50 focus:outline-none focus:border-indigo-400 text-white w-full pb-1"
                                 autoFocus
                             />
@@ -603,40 +606,51 @@ const FormEditor = () => {
                 formId={formId} 
             />
 
-            {/* Footer */}
-            <div className="mt-12 border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            {/* Neural Control Deck Footer */}
+            <div className="mt-16 relative">
+                <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
                 
-                <button
-                    onClick={handleDeleteForm}
-                    disabled={isNewForm}
-                    className="py-2.5 px-6 rounded-xl text-white font-semibold bg-red-600/20 border border-red-500/30 hover:bg-red-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
-                >
-                    Delete Module
-                </button>
-
-                <div className="flex flex-col items-end gap-4 w-full md:w-auto">
+                <div className="pt-8 flex flex-col lg:flex-row justify-between items-center gap-8 bg-slate-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 shadow-2xl">
                     
-                    <div className="flex gap-2">
-                        <span className="text-xs uppercase tracking-widest text-white/30 font-bold flex items-center mr-2">Creator Previews:</span>
-                        <button onClick={handlePreviewScroll} disabled={isNewForm} className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-500/40 disabled:opacity-50 transition-colors">
-                            Scroll View
-                        </button>
-                        <button onClick={handlePreviewFocus} disabled={isNewForm} className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-500/40 disabled:opacity-50 transition-colors">
-                            Focus Flow
-                        </button>
-                        <button onClick={handlePreviewChat} disabled={isNewForm} className="bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-pink-500/40 disabled:opacity-50 transition-colors">
-                            Chat Mode
-                        </button>
-                    </div>
-
                     <button
-                        onClick={() => setAdvancedShareOpen(true)}
+                        onClick={handleDeleteForm}
                         disabled={isNewForm}
-                        className="py-3 px-10 rounded-xl text-white font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-lg tracking-wide"
+                        className="flex items-center gap-2 py-3 px-6 rounded-xl text-red-400 font-semibold bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full lg:w-auto group"
                     >
-                        Configure Access Matrix (Share)
+                        <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
+                        Delete Module
                     </button>
 
+                    <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto flex-1 justify-end">
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto bg-white/5 p-2 rounded-2xl border border-white/10">
+                            <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold px-3 hidden sm:block">Previews</span>
+                            
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <button onClick={handlePreviewScroll} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-500/20 hover:border-emerald-500/40 disabled:opacity-50 transition-all group">
+                                    <LayoutList size={16} className="group-hover:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">Scroll</span>
+                                </button>
+                                <button onClick={handlePreviewFocus} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-50 transition-all group">
+                                    <Maximize size={16} className="group-hover:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">Focus</span>
+                                </button>
+                                <button onClick={handlePreviewChat} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-500/10 text-pink-400 border border-pink-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-pink-500/20 hover:border-pink-500/40 disabled:opacity-50 transition-all group">
+                                    <MessageSquare size={16} className="group-hover:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">Chat</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setAdvancedShareOpen(true)}
+                            disabled={isNewForm}
+                            className="flex items-center justify-center gap-3 py-4 px-8 rounded-2xl text-white font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-base tracking-wide"
+                        >
+                            <Share2 size={20} />
+                            Access Matrix (Share)
+                        </button>
+                    </div>
                 </div>
             </div>
         </motion.div>

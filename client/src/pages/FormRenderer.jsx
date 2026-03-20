@@ -29,8 +29,8 @@ import HeadingRenderer from '../components/renderer/HeadingRenderer';
 import ParagraphRenderer from '../components/renderer/ParagraphRenderer';
 import SwitchRenderer from '../components/renderer/SwitchRenderer';
 import EmailRenderer from '../components/renderer/EmailRenderer';
-import TemporalRenderer from '../components/renderer/TemporalRenderer'; // NEW
-import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; // NEW
+import TemporalRenderer from '../components/renderer/TemporalRenderer'; 
+import FileUploadRenderer from '../components/renderer/FileUploadRenderer'; 
 
 export default function FormRenderer() {
   const { formId } = useParams();
@@ -65,12 +65,18 @@ export default function FormRenderer() {
 
       const res = await axios(config);
 
+      // FIX: Filter out UI structure blocks for Focus Mode
+      const nonUiQuestions = res.data.questions.filter(
+        q => !['Banner', 'Heading', 'Paragraph'].includes(q.type)
+      );
+      const processedForm = { ...res.data, questions: nonUiQuestions };
+
       if (res.data.isLocked) {
         setIsLocked(true);
-        setForm(res.data);
+        setForm(processedForm);
       } else {
         setIsLocked(false);
-        setForm(res.data);
+        setForm(processedForm);
       }
     } catch (err) {
       if (err.response?.status === 410) {
@@ -225,6 +231,15 @@ export default function FormRenderer() {
 
   if (isLocked) {
     return <AccessGate title={form?.title || 'Secured Assessment'} error={authError} onUnlock={handleUnlock} />;
+  }
+
+  // Edge case: empty form after filtering
+  if (!form.questions || form.questions.length === 0) {
+    return (
+        <div className="h-screen w-full flex items-center justify-center bg-slate-950 text-white/50 font-mono">
+            No active modules available in Focus Flow.
+        </div>
+    );
   }
 
   return (
