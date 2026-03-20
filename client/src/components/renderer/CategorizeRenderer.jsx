@@ -1,42 +1,21 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-const CategorizeRenderer = ({ question, onAnswerChange, theme, savedAnswer }) => {
+const CategorizeRenderer = ({ question, onAnswerChange, savedAnswer }) => {
   const content = question.content || {};
   const categories = content.categories || [];
   const items = content.items || [];
-  
   const [columns, setColumns] = useState({});
 
   useEffect(() => {
-    // Initial Setup: All items in "Uncategorized" pool, empty categories
-    const initialColumns = {
-      uncategorized: {
-        id: 'uncategorized',
-        title: 'Items',
-        items: items.map((item, idx) => ({ id: `item-${idx}`, content: item.text }))
-      }
-    };
-
-    categories.forEach((cat, idx) => {
-      initialColumns[`cat-${idx}`] = {
-        id: `cat-${idx}`,
-        title: cat,
-        items: []
-      };
-    });
-
-    if (savedAnswer) {
-       // Logic to restore state if saved answer exists (complex for DND, skipping for brevity)
-    }
-    
+    const initialColumns = { uncategorized: { id: 'uncategorized', title: 'Items Base', items: items.map((item, idx) => ({ id: `item-${idx}`, content: item.text })) } };
+    categories.forEach((cat, idx) => { initialColumns[`cat-${idx}`] = { id: `cat-${idx}`, title: cat, items: [] }; });
     setColumns(initialColumns);
-  }, [question]); // Re-run if question changes
+  }, [question]);
 
   const onDragEnd = (result) => {
     const { source, destination } = result;
     if (!destination) return;
-
     const sourceCol = columns[source.droppableId];
     const destCol = columns[destination.droppableId];
     const sourceItems = [...sourceCol.items];
@@ -48,22 +27,11 @@ const CategorizeRenderer = ({ question, onAnswerChange, theme, savedAnswer }) =>
       setColumns({ ...columns, [source.droppableId]: { ...sourceCol, items: sourceItems } });
     } else {
       destItems.splice(destination.index, 0, removed);
-      setColumns({
-        ...columns,
-        [source.droppableId]: { ...sourceCol, items: sourceItems },
-        [destination.droppableId]: { ...destCol, items: destItems }
-      });
+      setColumns({ ...columns, [source.droppableId]: { ...sourceCol, items: sourceItems }, [destination.droppableId]: { ...destCol, items: destItems } });
     }
-
-    // Prepare answer object: { "Category A": ["Item 1", "Item 2"], ... }
     const answerSnapshot = {};
     Object.keys(columns).forEach(key => {
         if(key !== 'uncategorized') {
-            const col = columns[key];
-            // Since we updated state above, we need to read from the NEW state variables if we were inside a component, 
-            // but here we use the logic we just computed.
-            // Simplified: Just trigger a state update and let useEffect sync? 
-            // Better: Compute answer from the new columns object we just built.
             const newColItems = (key === source.droppableId) ? sourceItems : (key === destination.droppableId ? destItems : columns[key].items);
             answerSnapshot[columns[key].title] = newColItems.map(i => i.content);
         }
@@ -72,25 +40,20 @@ const CategorizeRenderer = ({ question, onAnswerChange, theme, savedAnswer }) =>
   };
 
   return (
-    <div className={`p-6 rounded-lg shadow-md border ${theme.cardBg} border-white/10`}>
-      <p className={`font-semibold text-lg mb-6 ${theme.text}`}>Drag items to their correct categories</p>
+    <div className="p-8 rounded-2xl shadow-xl border bg-slate-900 border-emerald-500/20 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+      <p className="font-semibold text-2xl mb-8 text-white">Drag items to correct categories</p>
       
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Uncategorized Pool */}
-          <div className="md:col-span-3 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-3 mb-6">
              <Droppable droppableId="uncategorized" direction="horizontal">
                 {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="p-4 bg-black/20 rounded-xl min-h-[80px] flex flex-wrap gap-2">
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="p-6 bg-white/[0.02] border border-white/10 rounded-xl min-h-[100px] flex flex-wrap gap-3">
                     {columns.uncategorized?.items.map((item, index) => (
                       <Draggable key={item.id} draggableId={item.id} index={index}>
                         {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-lg text-sm font-medium"
-                          >
+                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="px-5 py-3 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 rounded-lg shadow-lg text-sm font-bold tracking-wide">
                             {item.content}
                           </div>
                         )}
@@ -101,23 +64,16 @@ const CategorizeRenderer = ({ question, onAnswerChange, theme, savedAnswer }) =>
                 )}
              </Droppable>
           </div>
-
-          {/* Categories */}
           {Object.entries(columns).filter(([key]) => key !== 'uncategorized').map(([id, col]) => (
-             <div key={id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                <h4 className={`p-3 bg-white/5 font-bold text-center ${theme.text}`}>{col.title}</h4>
+             <div key={id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                <h4 className="p-4 bg-black/40 font-bold text-center text-white border-b border-white/10">{col.title}</h4>
                 <Droppable droppableId={id}>
                   {(provided) => (
-                    <div ref={provided.innerRef} {...provided.droppableProps} className="p-3 min-h-[150px] space-y-2">
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="p-4 flex-grow min-h-[200px] space-y-3 bg-white/[0.01]">
                        {col.items.map((item, index) => (
                          <Draggable key={item.id} draggableId={item.id} index={index}>
                            {(provided) => (
-                             <div
-                               ref={provided.innerRef}
-                               {...provided.draggableProps}
-                               {...provided.dragHandleProps}
-                               className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm"
-                             >
+                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="px-4 py-3 bg-slate-800 border border-white/5 text-white rounded-lg text-sm font-medium shadow-md">
                                {item.content}
                              </div>
                            )}

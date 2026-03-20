@@ -2,12 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Send, Loader2, GitBranch, ShieldAlert, Copy } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Send, Loader2, GitBranch, ShieldAlert } from 'lucide-react';
 import { GlassButton } from '../components/ui/GlassButton';
 import axios from '../api/axiosConfig';
-import { useUser, useAuth } from '@clerk/clerk-react'; // <--- FIXED IMPORT
+import { useUser, useAuth } from '@clerk/clerk-react'; 
 import toast from 'react-hot-toast';
-import { themes } from '../themes';
 
 // Import the Free AI Proctor
 import GazeMonitor from '../components/Proctoring/GazeMonitor';
@@ -33,8 +32,8 @@ import EmailRenderer from '../components/renderer/EmailRenderer';
 
 export default function FormRenderer() {
   const { formId } = useParams();
-  const { user, isLoaded } = useUser(); // <--- FIXED: useUser() gets the user object
-  const { userId } = useAuth();         // <--- FIXED: useAuth() gets the ID
+  const { user, isLoaded } = useUser(); 
+  const { userId } = useAuth();         
   const navigate = useNavigate();
 
   const [form, setForm] = useState(null);
@@ -91,12 +90,11 @@ export default function FormRenderer() {
     fetchForm(password);
   };
 
-  // 2. Proctoring Logic (Centralized)
+  // 2. Proctoring Logic 
   const handleViolation = (type) => {
     if (!loading && form && !isLocked) {
       setIntegrityFlags(prev => [...prev, { type, timestamp: new Date() }]);
       
-      // Visual Feedback for Basic Violations
       if (type.includes("Tab") || type.includes("Copy")) {
          toast.custom((t) => (
             <div className="bg-rose-500 text-white px-4 py-3 rounded-xl flex items-center gap-3 shadow-2xl animate-bounce">
@@ -111,25 +109,14 @@ export default function FormRenderer() {
     }
   };
 
-  // --- BASIC MONITORING (Tab Switch & Copy/Paste) ---
   useEffect(() => {
     if (!form || loading || isLocked) return;
-
     const level = form.settings?.proctoring || 'none';
-    if (level === 'none') return; // Exit if no monitoring
+    if (level === 'none') return; 
 
-    // 1. Tab Switching
     const handleBlur = () => handleViolation("Tab Switch Detected");
-    
-    // 2. Copy/Paste
-    const handleCopy = (e) => {
-        e.preventDefault();
-        handleViolation("Copy Action Blocked");
-    };
-    const handlePaste = (e) => {
-        e.preventDefault();
-        handleViolation("Paste Action Blocked");
-    };
+    const handleCopy = (e) => { e.preventDefault(); handleViolation("Copy Action Blocked"); };
+    const handlePaste = (e) => { e.preventDefault(); handleViolation("Paste Action Blocked"); };
 
     window.addEventListener("blur", handleBlur);
     document.addEventListener("copy", handleCopy);
@@ -144,13 +131,9 @@ export default function FormRenderer() {
     };
   }, [form, loading, isLocked]);
 
-
   // 3. Answer Handler
   const handleAnswer = (questionId, val) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: { questionId, answer: val }
-    }));
+    setAnswers(prev => ({ ...prev, [questionId]: { questionId, answer: val } }));
   };
 
   // 4. THE LOGIC ENGINE 
@@ -158,33 +141,24 @@ export default function FormRenderer() {
     const currentQ = form.questions[currentStep];
     const currentAnsObj = answers[currentQ._id];
     
-    if (!currentQ.logic || currentQ.logic.length === 0) {
-      return currentStep + 1;
-    }
+    if (!currentQ.logic || currentQ.logic.length === 0) return currentStep + 1;
 
     const userAnswer = currentAnsObj ? currentAnsObj.answer : null;
-
-    const matchedRule = currentQ.logic.find(rule => {
-      return rule.condition === userAnswer;
-    });
+    const matchedRule = currentQ.logic.find(rule => rule.condition === userAnswer);
 
     if (matchedRule) {
-      if (matchedRule.action === 'end_form') {
-        return 'END';
-      }
+      if (matchedRule.action === 'end_form') return 'END';
       if (matchedRule.action === 'jump_to' && matchedRule.destination) {
         const targetIndex = form.questions.findIndex(q => q._id === matchedRule.destination);
         if (targetIndex !== -1) return targetIndex;
       }
     }
-
     return currentStep + 1;
   };
 
   const paginate = (newDirection) => {
     if (newDirection > 0) {
       const nextStepIndex = calculateNextStep();
-
       if (nextStepIndex === 'END') {
         handleSubmit(); 
       } else if (nextStepIndex < form.questions.length) {
@@ -197,7 +171,6 @@ export default function FormRenderer() {
         const newStack = [...historyStack];
         newStack.pop(); 
         const prevStepIndex = newStack[newStack.length - 1]; 
-        
         setDirection(-1);
         setHistoryStack(newStack);
         setCurrentStep(prevStepIndex);
@@ -207,7 +180,6 @@ export default function FormRenderer() {
 
   const handleSubmit = async () => {
     if (!user) return toast.error("User identity required. Please log in.");
-    
     try {
       const payload = {
         formId,
@@ -220,23 +192,11 @@ export default function FormRenderer() {
       await axios.post('/api/responses', payload);
       toast.success("Assessment Submitted!");
       navigate('/dashboard');
-    } catch (err) {
-      toast.error("Submission Failed");
-    }
+    } catch (err) { toast.error("Submission Failed"); }
   };
 
   const renderQuestion = (q) => {
-    const themeKey = form?.theme || 'Light';
-    const currentTheme = themes?.[themeKey] || themes?.Light || { 
-        cardBg: 'bg-white', text: 'text-black', secondaryText: 'text-gray-500' 
-    };
-
-    const commonProps = {
-      question: q,
-      onAnswerChange: handleAnswer,
-      theme: currentTheme,
-      savedAnswer: answers[q._id]?.answer
-    };
+    const commonProps = { question: q, onAnswerChange: handleAnswer, savedAnswer: answers[q._id]?.answer };
 
     switch (q.type) {
       case 'MultipleChoice': return <MultipleChoiceRenderer {...commonProps} />;
@@ -264,19 +224,12 @@ export default function FormRenderer() {
   );
 
   if (isLocked) {
-    return (
-      <AccessGate 
-        title={form?.title || 'Secured Assessment'} 
-        error={authError}
-        onUnlock={handleUnlock} 
-      />
-    );
+    return <AccessGate title={form?.title || 'Secured Assessment'} error={authError} onUnlock={handleUnlock} />;
   }
 
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
       
-      {/* ONLY RENDER CAMERA IF FULL MONITORING IS SELECTED */}
       {form.settings?.proctoring === 'full' && (
         <GazeMonitor isActive={true} onViolation={handleViolation} />
       )}
@@ -308,10 +261,9 @@ export default function FormRenderer() {
             transition={{ duration: 0.4, ease: "circOut" }}
             className="w-full"
           >
-             <div className={`p-8 md:p-12 shadow-2xl backdrop-blur-2xl rounded-xl ${
-                 themes?.[form.theme]?.cardBg || 'bg-white' 
-             }`}>
-                <div className="flex justify-between items-start mb-6">
+             {/* Deep Dark Container for Renderers */}
+             <div className="p-8 md:p-12 shadow-2xl backdrop-blur-2xl rounded-2xl bg-white/5 border border-white/10">
+                <div className="flex justify-between items-start mb-8">
                   <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-xs uppercase tracking-widest">
                     {form.questions[currentStep].type}
                   </span>
@@ -336,7 +288,7 @@ export default function FormRenderer() {
         <button 
           onClick={() => paginate(-1)}
           disabled={historyStack.length <= 1}
-          className="p-4 rounded-full glass-card border-white/5 text-white/40 hover:text-white disabled:opacity-0 transition-all"
+          className="p-4 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 disabled:opacity-0 transition-all"
         >
           <ChevronLeft size={24} />
         </button>
@@ -351,7 +303,7 @@ export default function FormRenderer() {
         ) : (
           <GlassButton 
             onClick={() => paginate(1)}
-            className="bg-white/10 text-white px-8 py-4 flex items-center gap-2 hover:bg-white/20"
+            className="bg-indigo-600/20 text-indigo-400 border-indigo-500/50 px-8 py-4 flex items-center gap-2 hover:bg-indigo-500/30"
           >
             Next Node <ChevronRight size={18} />
           </GlassButton>
