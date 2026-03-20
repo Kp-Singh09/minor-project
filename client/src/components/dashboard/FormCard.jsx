@@ -10,6 +10,11 @@ export default function FormCard({ form, onDelete }) {
   const accentColor = form._id.charCodeAt(form._id.length - 1) % 2 === 0 ? 'text-indigo-400' : 'text-purple-400';
   const glowColor = form._id.charCodeAt(form._id.length - 1) % 2 === 0 ? 'bg-indigo-500/20' : 'bg-purple-500/20';
 
+  // Calculate actual interactive modules, ignoring UI structure components
+  const interactiveModuleCount = form.questions?.filter(
+    q => !['Banner', 'Heading', 'Paragraph'].includes(q.type)
+  ).length || 0;
+
   return (
     <motion.div
       whileHover={{ y: -8, scale: 1.02 }}
@@ -56,9 +61,9 @@ export default function FormCard({ form, onDelete }) {
             {new Date(form.createdAt).toLocaleDateString()}
           </span>
           <span className="w-1 h-1 rounded-full bg-white/10" />
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5" title="Interactive modules only">
             <FileText size={12} />
-            {form.questions?.length || 0} Modules
+            {interactiveModuleCount} Modules
           </span>
         </div>
 

@@ -30,6 +30,7 @@ import SwitchBuilder from '../components/builder/SwitchBuilder';
 import AiPromptModal from '../components/FormCreator/AiPromptModal';
 import TeamModal from '../components/FormCreator/TeamModal'; 
 import SettingsModal from '../components/FormCreator/SettingsModal'; 
+import AdvancedShareModal from '../components/FormCreator/AdvancedShareModal';
 
 const FormEditor = () => {
     const { formId } = useParams();
@@ -53,7 +54,8 @@ const FormEditor = () => {
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [teamModalOpen, setTeamModalOpen] = useState(false);
     const [settingsModalOpen, setSettingsModalOpen] = useState(false); 
-    
+    const [advancedShareOpen, setAdvancedShareOpen] = useState(false);
+
     // Real-Time States
     const [collaborators, setCollaborators] = useState([]);
     const [teamList, setTeamList] = useState([]);
@@ -61,6 +63,11 @@ const FormEditor = () => {
     const fileInputRef = useRef(null);
 
     const hasUnsavedChanges = form && currentTitle !== form.title;
+
+
+    const handlePreviewScroll = () => { if (!isNewForm) window.open(`/form/${formId}/scroll`, '_blank'); };
+    const handlePreviewFocus = () => { if (!isNewForm) window.open(`/form/${formId}/focus`, '_blank'); };
+    const handlePreviewChat = () => { if (!isNewForm) window.open(`/form/${formId}/chat`, '_blank'); };
 
     // 1. Initial Fetch
     useEffect(() => {
@@ -538,44 +545,51 @@ const FormEditor = () => {
             </div>
       
             {/* Footer with Chat Mode */}
-            <div className="mt-12 border-t border-white/10 pt-8 flex justify-between items-center gap-4">
+            <AdvancedShareModal 
+                isOpen={advancedShareOpen} 
+                onClose={() => setAdvancedShareOpen(false)} 
+                formId={formId} 
+            />
+
+            {/* Updated Footer */}
+            <div className="mt-12 border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                
                 <button
                     onClick={handleDeleteForm}
                     disabled={isNewForm}
-                    className="py-2.5 px-6 rounded-xl text-white font-semibold bg-red-600/20 border border-red-500/30 hover:bg-red-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="py-2.5 px-6 rounded-xl text-white font-semibold bg-red-600/20 border border-red-500/30 hover:bg-red-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                 >
                     Delete Module
                 </button>
-                <div className="flex justify-end items-center gap-4">
-                    <button
-                        onClick={handleShare}
-                        disabled={isNewForm}
-                        className={`py-2.5 px-6 rounded-xl text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border ${
-                            copied ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-purple-600/20 border-purple-500/30 text-purple-400 hover:bg-purple-600/40'
-                        }`}
-                    >
-                        {copied ? 'Link Copied!' : 'Share Form'}
-                    </button>
+
+                <div className="flex flex-col items-end gap-4 w-full md:w-auto">
                     
+                    {/* Explicit Creator Previews */}
+                    <div className="flex gap-2">
+                        <span className="text-xs uppercase tracking-widest text-white/30 font-bold flex items-center mr-2">Creator Previews:</span>
+                        <button onClick={handlePreviewScroll} disabled={isNewForm} className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-500/40 disabled:opacity-50 transition-colors">
+                            Scroll View
+                        </button>
+                        <button onClick={handlePreviewFocus} disabled={isNewForm} className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-500/40 disabled:opacity-50 transition-colors">
+                            Focus Flow
+                        </button>
+                        <button onClick={handlePreviewChat} disabled={isNewForm} className="bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-pink-500/40 disabled:opacity-50 transition-colors">
+                            Chat Mode
+                        </button>
+                    </div>
+
+                    {/* Advanced Share Button */}
                     <button
-                        onClick={handleChatMode}
+                        onClick={() => setAdvancedShareOpen(true)}
                         disabled={isNewForm}
-                        className="py-2.5 px-6 rounded-xl text-pink-400 font-semibold bg-pink-500/20 border border-pink-500/30 hover:bg-pink-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="py-3 px-10 rounded-xl text-white font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-lg tracking-wide"
                     >
-                        <MessageSquareText size={18} /> Chat Mode
+                        Configure Access Matrix (Share)
                     </button>
 
-                    <button
-                        onClick={handleViewForm}
-                        disabled={isNewForm}
-                        className="py-2.5 px-8 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Live Preview
-                    </button>
                 </div>
             </div>
         </motion.div>
     );
 };
-
 export default FormEditor;
