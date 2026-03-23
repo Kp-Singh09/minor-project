@@ -49,7 +49,6 @@ export const getResponsesByFormId = async (req, res) => {
 
 export const createResponse = async (req, res) => {
   try {
-    // 1. Destructure integrityFlags along with other data
     const { formId, answers, userId, userEmail, username, integrityFlags } = req.body; 
 
     if (!userId || !userEmail) {
@@ -60,14 +59,16 @@ export const createResponse = async (req, res) => {
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
     let totalScore = 0;
-    const marksPerQuestion = 10;
+    const marksPerQuestion = 10; // Default weight per question
+    
+    // UI elements and generic inputs are excluded from objective scoring
     const SCORABLE_TYPES = [
       'Comprehension', 'Categorize', 'Cloze', 
-      'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'
+      'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice', 'ShortAnswer'
     ];
     
     const scorableQuestions = form.questions.filter(q => SCORABLE_TYPES.includes(q.type));
-    const totalMarks = scorableQuestions.length * 10;
+    const totalMarks = scorableQuestions.length * marksPerQuestion;
     
     const processedAnswers = []; 
 
@@ -76,62 +77,74 @@ export const createResponse = async (req, res) => {
       if (!question) continue;
 
       let questionScore = 0;
+      const qContent = question.content || {}; // ALL data lives inside content
+      const userAnswer = submittedAnswer.answer;
       
-      switch (question.type) {
-        case 'Comprehension':
-          if (question.mcqs && question.mcqs.length > 0) {
-            const pointsPerMcq = marksPerQuestion / question.mcqs.length;
-            question.mcqs.forEach(mcq => {
-              if (submittedAnswer.answer[mcq._id.toString()] === mcq.correctAnswer) {
-                questionScore += pointsPerMcq;
-              }
-            });
-          }
-          break;
-        case 'Categorize':
-          if (question.items && question.items.length > 0) {
-            const pointsPerItem = marksPerQuestion / question.items.length;
-            question.items.forEach(item => {
-              const submittedCategory = Object.keys(submittedAnswer.answer).find(cat => 
-                Array.isArray(submittedAnswer.answer[cat]) && submittedAnswer.answer[cat].includes(item.text)
-              );
-              if (submittedCategory === item.category) {
-                questionScore += pointsPerItem;
-              }
-            });
-          }
-          break;
-        case 'Cloze':
-          const correctClozeAnswers = question.options;
-          if (correctClozeAnswers && correctClozeAnswers.length > 0) {
-            const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
-            for (let i = 0; i < correctClozeAnswers.length; i++) {
-              if (submittedAnswer.answer[`blank_${i}`] === correctClozeAnswers[i]) {
-                questionScore += pointsPerBlank;
+      if (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') {
+        switch (question.type) {
+          case 'Comprehension':
+            if (qContent.mcqs && qContent.mcqs.length > 0) {
+              const pointsPerMcq = marksPerQuestion / qContent.mcqs.length;
+              qContent.mcqs.forEach(mcq => {
+                if (userAnswer[mcq._id?.toString()] === mcq.correctAnswer) {
+                  questionScore += pointsPerMcq;
+                }
+              });
+            }
+            break;
+            
+          case 'Categorize':
+            if (qContent.items && qContent.items.length > 0) {
+              const pointsPerItem = marksPerQuestion / qContent.items.length;
+              qContent.items.forEach(item => {
+                // Find which category the user placed this item in
+                const submittedCategory = Object.keys(userAnswer).find(cat => 
+                  Array.isArray(userAnswer[cat]) && userAnswer[cat].includes(item.text)
+                );
+                if (submittedCategory === item.category) {
+                  questionScore += pointsPerItem;
+                }
+              });
+            }
+            break;
+
+          case 'Cloze':
+            // Assuming options array holds the correct blanks in order
+            const correctClozeAnswers = qContent.options || [];
+            if (correctClozeAnswers.length > 0) {
+              const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
+              for (let i = 0; i < correctClozeAnswers.length; i++) {
+                if (String(userAnswer[`blank_${i}`]).trim().toLowerCase() === String(correctClozeAnswers[i]).trim().toLowerCase()) {
+                  questionScore += pointsPerBlank;
+                }
               }
             }
-          }
-          break;
-        case 'MultipleChoice':
-        case 'Dropdown':
-        case 'PictureChoice':
-          if (submittedAnswer.answer === question.correctAnswer) {
-            questionScore = marksPerQuestion;
-          }
-          break;
-        case 'Checkbox':
-          const userAnswers = Array.isArray(submittedAnswer.answer) ? submittedAnswer.answer.sort() : [];
-          const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.sort() : [];
-          if (JSON.stringify(userAnswers) === JSON.stringify(correctAnswers)) {
-            questionScore = marksPerQuestion;
-          }
-          break;
+            break;
+
+          case 'MultipleChoice':
+          case 'Dropdown':
+          case 'PictureChoice':
+          case 'ShortAnswer':
+            if (String(userAnswer).trim().toLowerCase() === String(qContent.correctAnswer || '').trim().toLowerCase()) {
+              questionScore = marksPerQuestion;
+            }
+            break;
+
+          case 'Checkbox':
+            const userAnsArr = Array.isArray(userAnswer) ? [...userAnswer].sort() : [];
+            const correctAnsArr = Array.isArray(qContent.correctAnswers) ? [...qContent.correctAnswers].sort() : [];
+            
+            if (JSON.stringify(userAnsArr) === JSON.stringify(correctAnsArr)) {
+              questionScore = marksPerQuestion;
+            }
+            break;
+        }
       }
 
       totalScore += questionScore;
       processedAnswers.push({
         ...submittedAnswer,
-        points: Math.round(questionScore)
+        points: Math.round(questionScore) // Save calculated points
       });
     }
 
@@ -143,7 +156,7 @@ export const createResponse = async (req, res) => {
       username: username || 'Anonymous',
       score: Math.round(totalScore),
       totalMarks,
-      integrityFlags: integrityFlags || [] // 2. Save the flags
+      integrityFlags: integrityFlags || []
     });
     
     const savedResponse = await newResponse.save();
@@ -152,7 +165,7 @@ export const createResponse = async (req, res) => {
 
     res.status(201).json({ message: 'Response submitted!', responseId: savedResponse._id });
   } catch (error) {
-    console.error(error);
+    console.error("Scoring Error:", error);
     res.status(500).json({ message: 'Server Error', error });
   }
 };

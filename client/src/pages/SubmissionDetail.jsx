@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axiosConfig';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Clock, Award, ShieldAlert, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, Award, ShieldAlert, Download, FileText, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { GlassButton } from '../components/ui/GlassButton';
 import toast from 'react-hot-toast';
 
@@ -58,7 +58,7 @@ export default function SubmissionDetail() {
 
   if (loading) return (
     <div className="h-screen w-full flex items-center justify-center bg-slate-950 text-white">
-      Loading details...
+      <Clock className="animate-spin text-indigo-500 mr-3" /> Loading details...
     </div>
   );
   
@@ -68,17 +68,146 @@ export default function SubmissionDetail() {
     </div>
   );
 
+  const percentage = response.totalMarks > 0 
+    ? ((response.score / response.totalMarks) * 100).toFixed(2) 
+    : 0;
+
+  // Render logic for different question types
+  const renderAnswerDetails = (type, content, userAnswer, isCorrect) => {
+    if (!content) return null;
+
+    // SCENARIO 1: Simple text/choice comparisons
+    if (['MultipleChoice', 'Dropdown', 'PictureChoice', 'ShortAnswer', 'Email', 'LongAnswer'].includes(type)) {
+      return (
+        <div className="mt-4 space-y-3 text-sm">
+          <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+            <span className="text-slate-400 block mb-1 font-mono text-xs uppercase tracking-wider">Your Answer:</span>
+            <span className="text-white font-medium">{String(userAnswer || 'No Answer Provided')}</span>
+          </div>
+          {!isCorrect && content.correctAnswer && (
+            <div className="bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
+              <span className="text-emerald-400 block mb-1 font-mono text-xs uppercase tracking-wider">Correct Answer:</span>
+              <span className="text-emerald-300 font-medium">{String(content.correctAnswer)}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // SCENARIO 2: Checkboxes (Arrays)
+    if (type === 'Checkbox') {
+      const userArr = Array.isArray(userAnswer) ? userAnswer : [];
+      const correctArr = Array.isArray(content.correctAnswers) ? content.correctAnswers : [];
+      
+      return (
+        <div className="mt-4 space-y-3 text-sm">
+          <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+            <span className="text-slate-400 block mb-1 font-mono text-xs uppercase tracking-wider">Your Answer:</span>
+            <span className="text-white font-medium">{userArr.length > 0 ? userArr.join(', ') : 'No Answer Provided'}</span>
+          </div>
+          {!isCorrect && correctArr.length > 0 && (
+            <div className="bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
+              <span className="text-emerald-400 block mb-1 font-mono text-xs uppercase tracking-wider">Correct Answer:</span>
+              <span className="text-emerald-300 font-medium">{correctArr.join(', ')}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // SCENARIO 3: Categorize
+    if (type === 'Categorize') {
+      // Reconstruct correct mapping from content.items
+      const correctMapping = {};
+      if (content.items) {
+        content.items.forEach(item => {
+          if (!correctMapping[item.category]) correctMapping[item.category] = [];
+          correctMapping[item.category].push(item.text);
+        });
+      }
+
+      return (
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="bg-white/5 p-4 rounded-lg border border-white/5">
+            <span className="text-slate-400 block mb-3 font-mono text-xs uppercase tracking-wider border-b border-white/10 pb-2">Your Answer:</span>
+            {userAnswer ? Object.entries(userAnswer).map(([cat, items]) => (
+              <div key={cat} className="mb-3 last:mb-0">
+                <span className="text-indigo-300 font-bold block">{cat}:</span>
+                <span className="text-white">{Array.isArray(items) ? items.join(', ') : items}</span>
+              </div>
+            )) : <span className="text-white">No Answer Provided</span>}
+          </div>
+          
+          {!isCorrect && (
+            <div className="bg-emerald-500/10 p-4 rounded-lg border border-emerald-500/20">
+              <span className="text-emerald-400 block mb-3 font-mono text-xs uppercase tracking-wider border-b border-emerald-500/20 pb-2">Correct Answer:</span>
+              {Object.entries(correctMapping).map(([cat, items]) => (
+                <div key={cat} className="mb-3 last:mb-0">
+                  <span className="text-emerald-400 font-bold block">{cat}:</span>
+                  <span className="text-emerald-200">{items.join(', ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // SCENARIO 4: Comprehension
+    if (type === 'Comprehension') {
+      return (
+        <div className="mt-4 space-y-4">
+          <div className="p-4 bg-white/5 rounded-lg border border-white/10 text-slate-300 text-sm italic">
+            {content.text}
+          </div>
+          {content.mcqs && content.mcqs.map((mcq, i) => {
+            const uAns = userAnswer ? userAnswer[mcq._id] : null;
+            const isMcqCorrect = uAns === mcq.correctAnswer;
+            
+            return (
+              <div key={mcq._id} className="bg-black/20 p-4 rounded-lg border border-white/5 text-sm">
+                <p className="text-white font-medium mb-3">Q{i+1}: {mcq.question}</p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                     <span className="text-slate-400 w-24">Your Answer:</span>
+                     <span className={isMcqCorrect ? "text-emerald-400" : "text-rose-400"}>
+                        {uAns || "No Answer"}
+                     </span>
+                  </div>
+                  {!isMcqCorrect && (
+                    <div className="flex items-center gap-2">
+                       <span className="text-slate-400 w-24">Correct:</span>
+                       <span className="text-emerald-400">{mcq.correctAnswer}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Fallback for Cloze or unsupported complex types
+    return (
+      <div className="mt-4 bg-white/5 p-3 rounded-lg border border-white/5 text-sm font-mono overflow-x-auto text-slate-300">
+        <span className="text-xs text-slate-500 block mb-1">Raw Output:</span>
+        {typeof userAnswer === 'object' ? JSON.stringify(userAnswer, null, 2) : String(userAnswer)}
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6 md:p-12 font-sans">
+    <div className="min-h-screen bg-slate-950 text-white p-6 md:p-12 font-sans relative z-10">
       <div className="max-w-4xl mx-auto space-y-8">
         
-        {/* Header */}
+        {/* Navigation Header */}
         <div className="flex justify-between items-center">
           <button 
             onClick={() => navigate(-1)} 
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={18} /> Back
+            <ArrowLeft size={18} /> Back to All Submissions
           </button>
           
           <GlassButton 
@@ -91,94 +220,77 @@ export default function SubmissionDetail() {
           </GlassButton>
         </div>
 
-        {/* Score Card */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-6 border-l-4 border-l-emerald-500 bg-slate-900/50"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Award className="text-emerald-400" />
-              <h3 className="text-sm font-bold text-slate-400 uppercase">Score</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {response.score} <span className="text-lg text-slate-500">/ {response.totalMarks}</span>
-            </p>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="glass-card p-6 border-l-4 border-l-blue-500 bg-slate-900/50"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Clock className="text-blue-400" />
-              <h3 className="text-sm font-bold text-slate-400 uppercase">Submitted</h3>
-            </div>
-            <p className="text-lg font-medium text-white">
-              {new Date(response.submittedAt).toLocaleDateString()}
-            </p>
-            <p className="text-xs text-slate-500">
-              {new Date(response.submittedAt).toLocaleTimeString()}
-            </p>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card p-6 border-l-4 border-l-rose-500 bg-slate-900/50"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <ShieldAlert className="text-rose-400" />
-              <h3 className="text-sm font-bold text-slate-400 uppercase">Integrity</h3>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {response.integrityFlags?.length || 0} <span className="text-sm font-normal text-slate-500">Flags</span>
-            </p>
-          </motion.div>
+        {/* Results Header */}
+        <div className="text-center pb-8 border-b border-white/10">
+           <h2 className="text-slate-400 mb-2 font-mono uppercase tracking-widest text-sm">
+             Results for <span className="text-white">{response.userEmail}</span>
+           </h2>
+           <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-4">
+             {percentage}%
+           </h1>
+           <p className="text-xl text-slate-300">
+              Score: <span className="font-bold text-white">{response.score}</span> / {response.totalMarks}
+           </p>
         </div>
 
-        {/* AI Analysis */}
-        {response.aiFeedback && (
-          <div className="glass-card p-6 border border-white/5 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 rounded-xl">
-            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-              <FileText size={20} className="text-indigo-400" /> AI Evaluation
-            </h3>
-            <p className="text-slate-300 leading-relaxed italic">
-              "{response.aiFeedback}"
-            </p>
-          </div>
-        )}
+        {/* Answer Breakdown Title */}
+        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+          <FileText className="text-indigo-400" /> Answer Breakdown
+        </h2>
 
-        {/* Question Breakdown (FIXED SECTION) */}
-        <div className="space-y-4">
-           <h2 className="text-xl font-bold text-white mb-4">Response Breakdown</h2>
+        {/* Dynamic Question Mapping */}
+        <div className="space-y-6">
            {response.answers.map((ans, idx) => {
-             // Extract question text safely (handle both populated object and string ID)
-             const questionText = typeof ans.questionId === 'object'
-               ? (ans.questionId.content?.question || ans.questionId.content?.text || "Unknown Question")
-               : `Question ID: ${ans.questionId}`;
+             const question = ans.questionId;
+             // Skip UI components in breakdown unless they have answers
+             if (['Heading', 'Paragraph', 'Banner'].includes(question.type)) return null;
+
+             const content = question.content || {};
+             const qText = content.question || content.text || `Question ${idx + 1}`;
+             
+             // Determine points status based on a standard 10pt per question logic 
+             // (Adjust maxPoints if your backend allows dynamic weightage)
+             const maxPoints = 10; 
+             const isCorrect = ans.points >= maxPoints;
+             const isPartiallyCorrect = ans.points > 0 && ans.points < maxPoints;
+             
+             // Unscorable generic input check
+             const isUnscorable = !['Comprehension', 'Categorize', 'Cloze', 'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'].includes(question.type);
 
              return (
-               <div key={idx} className="glass-card p-4 border border-white/5 rounded-xl">
-                  <div className="flex justify-between items-start mb-2 gap-4">
-                     <span className="text-sm text-slate-300 font-medium">
-                       <span className="text-slate-500 mr-2">Q{idx + 1}.</span> 
-                       {questionText}
-                     </span>
-                     <span className={`text-sm font-bold whitespace-nowrap ${ans.points > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                       {ans.points} Pts
+               <div key={idx} className="glass-card p-6 border border-white/5 rounded-2xl bg-white/[0.02]">
+                  {/* Question Header */}
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                     <h3 className="text-lg font-medium text-white leading-relaxed">
+                       <span className="text-slate-500 mr-2 font-mono text-sm">Question #{idx + 1}:</span> 
+                       {qText}
+                     </h3>
+                     <span className="text-slate-400 font-mono text-sm whitespace-nowrap bg-black/30 px-3 py-1 rounded-full">
+                       ({ans.points}/{isUnscorable ? '-' : maxPoints} pts)
                      </span>
                   </div>
-                  <div className="bg-black/30 p-3 rounded-lg text-slate-200 font-mono text-sm overflow-x-auto border border-white/5">
-                     <span className="text-xs text-slate-500 block mb-1">Answer:</span>
-                     {typeof ans.answer === 'object' 
-                        ? JSON.stringify(ans.answer, null, 2) 
-                        : (ans.answer !== undefined && ans.answer !== null ? ans.answer.toString() : "No Answer")}
-                  </div>
+
+                  {/* Status Badge */}
+                  {!isUnscorable && (
+                    <div className="mb-4">
+                      {isCorrect ? (
+                        <div className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-400/20">
+                           <CheckCircle2 size={14} /> Correct
+                        </div>
+                      ) : isPartiallyCorrect ? (
+                        <div className="inline-flex items-center gap-1.5 text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-amber-400/20">
+                           <AlertCircle size={14} /> Partially Correct
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 text-rose-400 bg-rose-400/10 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-rose-400/20">
+                           <XCircle size={14} /> Incorrect
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Dynamic Answer Renderer */}
+                  {renderAnswerDetails(question.type, content, ans.answer, isCorrect)}
                </div>
              );
            })}

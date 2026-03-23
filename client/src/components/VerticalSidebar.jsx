@@ -1,13 +1,14 @@
 // client/src/components/VerticalSidebar.jsx
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, PlusCircle, LogOut, Inbox } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, PlusCircle, LogOut, Inbox, CheckCircle } from 'lucide-react';
 import { SignOutButton } from '@clerk/clerk-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'My Forms', path: '/my-forms', icon: FileText }, 
-  { name: 'Submissions', path: '/submissions', icon: Inbox }, // Updated to point to /submissions
+  { name: 'Submissions', path: '/submissions', icon: Inbox }, // Incoming responses to your forms
+  { name: 'My Attempts', path: '/attempts', icon: CheckCircle }, // Forms you have filled out
   { name: 'Analytics', path: '/analytics', icon: BarChart3 },
 ];
 
@@ -30,11 +31,11 @@ export default function VerticalSidebar() {
         </button>
 
         {navItems.map((item) => (
-          <div key={item.name} className="relative group">
+          <div key={item.name} className="relative group" title={item.name}>
             <button
               onClick={() => navigate(item.path)}
               className={`p-3 rounded-xl transition-all relative z-10 ${
-                location.pathname === item.path ? 'text-white bg-white/10' : 'text-white/40 hover:text-white'
+                location.pathname.startsWith(item.path) ? 'text-white bg-white/10' : 'text-white/40 hover:text-white'
               }`}
             >
               <item.icon size={22} />
@@ -45,7 +46,7 @@ export default function VerticalSidebar() {
         <div className="h-px bg-white/10 my-2" />
 
         <SignOutButton>
-          <button className="p-3 rounded-xl text-white/40 hover:text-red-400 transition-all">
+          <button className="p-3 rounded-xl text-white/40 hover:text-red-400 transition-all" title="Sign Out">
             <LogOut size={22} />
           </button>
         </SignOutButton>

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/clerk-react';
 import { Plus, Loader2, AlertCircle, Layout, Activity, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast'; // Import toast for notifications
 import api from '../api/axiosConfig'; 
 import FormCard from '../components/dashboard/FormCard';
 
@@ -32,6 +33,24 @@ export default function DashboardPage() {
     };
     fetchUserForms();
   }, [user]);
+
+  // NEW: Delete Handler
+  const handleDeleteForm = async (formId) => {
+    // Optional: Add a confirmation dialog
+    if (!window.confirm("Are you sure you want to delete this form? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/forms/${formId}`);
+      // Remove the deleted form from the state
+      setForms((prevForms) => prevForms.filter((form) => form._id !== formId));
+      toast.success('Form deleted successfully');
+    } catch (err) {
+      console.error("Error deleting form:", err);
+      toast.error('Failed to delete form');
+    }
+  };
 
   const filteredForms = useMemo(() => {
     return forms.filter(form => 
@@ -152,7 +171,8 @@ export default function DashboardPage() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2 }}
               >
-                <FormCard form={form} />
+                {/* UPDATED: Pass the onDelete prop */}
+                <FormCard form={form} onDelete={handleDeleteForm} />
               </motion.div>
             ))}
           </motion.div>

@@ -11,7 +11,7 @@ const getRouteDetails = (pathname) => {
   if (pathname.includes('/stats')) return { title: 'Global Stats', icon: PieChart, color: 'text-amber-400' };
   if (pathname.includes('/submissions')) return { title: 'Submissions Hub', icon: FolderOpen, color: 'text-blue-400' };
   if (pathname.includes('/editor')) return { title: 'Neural Editor', icon: Sparkles, color: 'text-purple-400' };
-  return { title: 'Workspace', icon: Settings, color: 'text-gray-400' };
+  return { title: 'My Attempts', icon: Settings, color: 'text-gray-400' };
 };
 
 export default function HorizontalNavbar() {

@@ -379,14 +379,18 @@ const FormEditor = () => {
         }
     };
 
-    // --- RENDER BUILDERS ---
-    const renderBuilder = () => {
-        const type = editingQuestion ? editingQuestion.type.toLowerCase() : activeBuilder;
+    // Helper to start adding a new question and close the edit view
+    const handleAddClick = (type) => {
+        setEditingQuestion(null);
+        setActiveBuilder(type);
+    };
+
+    // --- RENDER BUILDERS (UPDATED TO TAKE TYPE & DATA EXPLICITLY) ---
+    const renderBuilder = (type, initialData) => {
         const onCancel = () => { setActiveBuilder(null); setEditingQuestion(null); };
-        const initialData = editingQuestion;
         const props = { onSave: handleSaveQuestion, onCancel, initialData };
 
-        switch(type) {
+        switch(type.toLowerCase()) {
             case 'multiplechoice': return <MultipleChoiceBuilder {...props} />;
             case 'checkbox': return <CheckboxBuilder {...props} />;
             case 'dropdown': return <DropdownBuilder {...props} />;
@@ -524,26 +528,45 @@ const FormEditor = () => {
                 </div>
             </div>
 
-            {/* Questions List */}
+            {/* Questions List (UPDATED FOR INLINE EDITING) */}
             <Reorder.Group axis="y" values={form.questions} onReorder={handleReorder} className="space-y-6">
-                <AnimatePresence>
+                <AnimatePresence mode="popLayout">
                     {form.questions.map((question) => (
-                        <DraggableQuestionItem 
-                            key={question._id} 
-                            question={question} 
-                            onEdit={setEditingQuestion} 
-                            onDelete={handleDeleteQuestion} 
-                        />
+                        editingQuestion && editingQuestion._id === question._id ? (
+                            <motion.div
+                                key={`edit-${question._id}`}
+                                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="border border-indigo-500/60 rounded-2xl overflow-hidden bg-slate-900/90 backdrop-blur-2xl shadow-[0_0_50px_-10px_rgba(99,102,241,0.25)] relative z-50 my-8"
+                            >
+                                {renderBuilder(question.type, editingQuestion)}
+                            </motion.div>
+                        ) : (
+                            <DraggableQuestionItem 
+                                key={question._id} 
+                                question={question} 
+                                onEdit={(q) => {
+                                    setActiveBuilder(null); // Close new question builder
+                                    setEditingQuestion(q); // Open inline editor
+                                }} 
+                                onDelete={handleDeleteQuestion} 
+                            />
+                        )
                     ))}
                 </AnimatePresence>
             </Reorder.Group>
 
-            {/* Builder Selection Grid */}
+            {/* Builder Selection Grid (UPDATED) */}
             <div className="mt-10">
-                {activeBuilder || editingQuestion ? (
-                    <div className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-slate-900/50 backdrop-blur-xl shadow-2xl">
-                         {renderBuilder()}
-                    </div>
+                {activeBuilder ? (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-slate-900/50 backdrop-blur-xl shadow-2xl"
+                    >
+                         {renderBuilder(activeBuilder, null)}
+                    </motion.div>
                 ) : (
                     <div className="p-8 border-2 border-dashed border-white/20 rounded-2xl bg-white/5 backdrop-blur-sm">
                         <h3 className="text-2xl font-bold mb-8 text-white tracking-tight text-center">Expand Neural Form</h3>
@@ -552,36 +575,36 @@ const FormEditor = () => {
                             {/* Column 1: Choice Modules */}
                             <div className="flex flex-col gap-3">
                                 <h4 className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-2">Choice Vectors</h4>
-                                <button onClick={() => setActiveBuilder('multiplechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Multiple Choice</button>
-                                <button onClick={() => setActiveBuilder('checkbox')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Checkboxes</button>
-                                <button onClick={() => setActiveBuilder('dropdown')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Dropdown List</button>
-                                <button onClick={() => setActiveBuilder('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
+                                <button onClick={() => handleAddClick('multiplechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Multiple Choice</button>
+                                <button onClick={() => handleAddClick('checkbox')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Checkboxes</button>
+                                <button onClick={() => handleAddClick('dropdown')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Dropdown List</button>
+                                <button onClick={() => handleAddClick('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
                             </div>
 
                             {/* Column 2: Data Input */}
                             <div className="flex flex-col gap-3">
                                 <h4 className="text-xs uppercase tracking-widest text-pink-400 font-bold mb-2">Data Input</h4>
-                                <button onClick={() => setActiveBuilder('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Text Response</button>
-                                <button onClick={() => setActiveBuilder('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
-                                <button onClick={() => setActiveBuilder('temporal')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Temporal Node</button>
-                                <button onClick={() => setActiveBuilder('fileupload')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Asset Uplink</button>
+                                <button onClick={() => handleAddClick('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Text Response</button>
+                                <button onClick={() => handleAddClick('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
+                                <button onClick={() => handleAddClick('temporal')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Temporal Node</button>
+                                <button onClick={() => handleAddClick('fileupload')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Asset Uplink</button>
                             </div>
 
                             {/* Column 3: Advanced Cognitive */}
                             <div className="flex flex-col gap-3">
                                 <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2">Cognitive Matrix</h4>
-                                <button onClick={() => setActiveBuilder('comprehension')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Comprehension</button>
-                                <button onClick={() => setActiveBuilder('categorize')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Categorize</button>
-                                <button onClick={() => setActiveBuilder('cloze')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Cloze (Blanks)</button>
-                                <button onClick={() => setActiveBuilder('switch')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Toggle Switch</button>
+                                <button onClick={() => handleAddClick('comprehension')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Comprehension</button>
+                                <button onClick={() => handleAddClick('categorize')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Categorize</button>
+                                <button onClick={() => handleAddClick('cloze')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Cloze (Blanks)</button>
+                                <button onClick={() => handleAddClick('switch')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Toggle Switch</button>
                             </div>
 
                             {/* Column 4: UI Structure */}
                             <div className="flex flex-col gap-3">
                                 <h4 className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2">UI Structure</h4>
-                                <button onClick={() => setActiveBuilder('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
-                                <button onClick={() => setActiveBuilder('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
-                                <button onClick={() => setActiveBuilder('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
+                                <button onClick={() => handleAddClick('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
+                                <button onClick={() => handleAddClick('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
+                                <button onClick={() => handleAddClick('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
                                 
                                 <div className="relative group bg-amber-900/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 cursor-help py-2.5 px-4 transition-all hover:bg-amber-500/10">
                                     <AlertCircle className="text-amber-500/70 shrink-0" size={16} />
