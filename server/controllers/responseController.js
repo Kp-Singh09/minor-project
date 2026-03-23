@@ -59,9 +59,7 @@ export const createResponse = async (req, res) => {
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
     let totalScore = 0;
-    const marksPerQuestion = 10; // Default weight per question
-    
-    // UI elements and generic inputs are excluded from objective scoring
+    const marksPerQuestion = 10;
     const SCORABLE_TYPES = [
       'Comprehension', 'Categorize', 'Cloze', 
       'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice', 'ShortAnswer'
@@ -77,10 +75,10 @@ export const createResponse = async (req, res) => {
       if (!question) continue;
 
       let questionScore = 0;
-      const qContent = question.content || {}; // ALL data lives inside content
-      const userAnswer = submittedAnswer.answer;
+      const qContent = question.content || {}; 
+      const userAnswer = submittedAnswer.answer || {};
       
-      if (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') {
+      if (submittedAnswer.answer !== undefined && submittedAnswer.answer !== null && submittedAnswer.answer !== '') {
         switch (question.type) {
           case 'Comprehension':
             if (qContent.mcqs && qContent.mcqs.length > 0) {
@@ -97,7 +95,6 @@ export const createResponse = async (req, res) => {
             if (qContent.items && qContent.items.length > 0) {
               const pointsPerItem = marksPerQuestion / qContent.items.length;
               qContent.items.forEach(item => {
-                // Find which category the user placed this item in
                 const submittedCategory = Object.keys(userAnswer).find(cat => 
                   Array.isArray(userAnswer[cat]) && userAnswer[cat].includes(item.text)
                 );
@@ -109,12 +106,15 @@ export const createResponse = async (req, res) => {
             break;
 
           case 'Cloze':
-            // Assuming options array holds the correct blanks in order
             const correctClozeAnswers = qContent.options || [];
             if (correctClozeAnswers.length > 0) {
               const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
               for (let i = 0; i < correctClozeAnswers.length; i++) {
-                if (String(userAnswer[`blank_${i}`]).trim().toLowerCase() === String(correctClozeAnswers[i]).trim().toLowerCase()) {
+                // Check using index i, which is what the frontend provides (e.g. answer[0])
+                const uAns = String(userAnswer[i] || '').trim().toLowerCase();
+                const cAns = String(correctClozeAnswers[i] || '').trim().toLowerCase();
+                
+                if (uAns === cAns) {
                   questionScore += pointsPerBlank;
                 }
               }
@@ -144,7 +144,7 @@ export const createResponse = async (req, res) => {
       totalScore += questionScore;
       processedAnswers.push({
         ...submittedAnswer,
-        points: Math.round(questionScore) // Save calculated points
+        points: Math.round(questionScore) 
       });
     }
 
@@ -165,7 +165,7 @@ export const createResponse = async (req, res) => {
 
     res.status(201).json({ message: 'Response submitted!', responseId: savedResponse._id });
   } catch (error) {
-    console.error("Scoring Error:", error);
+    console.error(error);
     res.status(500).json({ message: 'Server Error', error });
   }
 };

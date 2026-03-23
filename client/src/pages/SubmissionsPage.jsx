@@ -17,7 +17,9 @@ export default function SubmissionsPage() {
       const fetchUserForms = async () => {
         try {
           const response = await axios.get(`/api/forms/user/${user.id}`);
-          setForms(response.data);
+          // Sort forms by creation date (Newest First)
+          const sortedForms = response.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          setForms(sortedForms);
         } catch (error) {
           console.error("Failed to fetch user forms", error);
         } finally {

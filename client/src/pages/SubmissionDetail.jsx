@@ -76,7 +76,43 @@ export default function SubmissionDetail() {
   const renderAnswerDetails = (type, content, userAnswer, isCorrect) => {
     if (!content) return null;
 
-    // SCENARIO 1: Simple text/choice comparisons
+    // --- CLOZE RENDERER ---
+    if (type === 'Cloze') {
+      const passage = content.passage || '';
+      const parts = passage.split('[BLANK]');
+      const correctClozeAnswers = content.options || [];
+
+      return (
+        <div className="mt-4 space-y-4 text-sm text-slate-300 leading-loose bg-white/5 p-6 rounded-lg border border-white/5">
+          {parts.map((part, index) => {
+            const uAns = userAnswer ? userAnswer[index] : null;
+            const cAns = correctClozeAnswers[index];
+            const isBlankCorrect = String(uAns).trim().toLowerCase() === String(cAns).trim().toLowerCase();
+
+            return (
+              <span key={index}>
+                {part}
+                {index < parts.length - 1 && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 mx-1 rounded border-b-2 font-bold ${
+                    !uAns ? 'border-slate-500 text-slate-500 bg-black/20' :
+                    isBlankCorrect ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' :
+                    'border-rose-500 text-rose-400 bg-rose-500/10'
+                  }`}>
+                    {uAns || "No Answer"}
+                    {!isBlankCorrect && uAns && (
+                       <span className="text-emerald-400 ml-1">
+                          (Correct: {cAns})
+                       </span>
+                    )}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
+
     if (['MultipleChoice', 'Dropdown', 'PictureChoice', 'ShortAnswer', 'Email', 'LongAnswer'].includes(type)) {
       return (
         <div className="mt-4 space-y-3 text-sm">
@@ -94,7 +130,6 @@ export default function SubmissionDetail() {
       );
     }
 
-    // SCENARIO 2: Checkboxes (Arrays)
     if (type === 'Checkbox') {
       const userArr = Array.isArray(userAnswer) ? userAnswer : [];
       const correctArr = Array.isArray(content.correctAnswers) ? content.correctAnswers : [];
@@ -115,9 +150,7 @@ export default function SubmissionDetail() {
       );
     }
 
-    // SCENARIO 3: Categorize
     if (type === 'Categorize') {
-      // Reconstruct correct mapping from content.items
       const correctMapping = {};
       if (content.items) {
         content.items.forEach(item => {
@@ -153,7 +186,6 @@ export default function SubmissionDetail() {
       );
     }
 
-    // SCENARIO 4: Comprehension
     if (type === 'Comprehension') {
       return (
         <div className="mt-4 space-y-4">
@@ -188,7 +220,6 @@ export default function SubmissionDetail() {
       );
     }
 
-    // Fallback for Cloze or unsupported complex types
     return (
       <div className="mt-4 bg-white/5 p-3 rounded-lg border border-white/5 text-sm font-mono overflow-x-auto text-slate-300">
         <span className="text-xs text-slate-500 block mb-1">Raw Output:</span>
@@ -207,7 +238,7 @@ export default function SubmissionDetail() {
             onClick={() => navigate(-1)} 
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={18} /> Back to All Submissions
+            <ArrowLeft size={18} /> Back
           </button>
           
           <GlassButton 
@@ -242,19 +273,14 @@ export default function SubmissionDetail() {
         <div className="space-y-6">
            {response.answers.map((ans, idx) => {
              const question = ans.questionId;
-             // Skip UI components in breakdown unless they have answers
-             if (['Heading', 'Paragraph', 'Banner'].includes(question.type)) return null;
+             if (!question || ['Heading', 'Paragraph', 'Banner'].includes(question.type)) return null;
 
              const content = question.content || {};
              const qText = content.question || content.text || `Question ${idx + 1}`;
              
-             // Determine points status based on a standard 10pt per question logic 
-             // (Adjust maxPoints if your backend allows dynamic weightage)
              const maxPoints = 10; 
              const isCorrect = ans.points >= maxPoints;
              const isPartiallyCorrect = ans.points > 0 && ans.points < maxPoints;
-             
-             // Unscorable generic input check
              const isUnscorable = !['Comprehension', 'Categorize', 'Cloze', 'MultipleChoice', 'Checkbox', 'Dropdown', 'PictureChoice'].includes(question.type);
 
              return (

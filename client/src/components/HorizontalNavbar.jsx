@@ -11,7 +11,7 @@ const getRouteDetails = (pathname) => {
   if (pathname.includes('/stats')) return { title: 'Global Stats', icon: PieChart, color: 'text-amber-400' };
   if (pathname.includes('/submissions')) return { title: 'Submissions Hub', icon: FolderOpen, color: 'text-blue-400' };
   if (pathname.includes('/editor')) return { title: 'Neural Editor', icon: Sparkles, color: 'text-purple-400' };
-  return { title: 'My Attempts', icon: Settings, color: 'text-gray-400' };
+  return { title: 'Workspace', icon: Settings, color: 'text-gray-400' };
 };
 
 export default function HorizontalNavbar() {
@@ -23,7 +23,7 @@ export default function HorizontalNavbar() {
   const today = new Date().toLocaleDateString('en-US', dateOptions);
 
   return (
-    <header className="sticky top-0 z-[60] w-full bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all h-20 flex items-center">
+    <header className="sticky top-0 z-[60] w-full bg-transparent backdrop-blur-md border-b border-white/5 transition-all h-20 flex items-center">
       
       {/* Removed center alignment so it spans the absolute edges. 
           Added pl-8 so it aligns perfectly above the floating sidebar */}
