@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axiosConfig';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Award, ShieldAlert, Download, FileText, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { GlassButton } from '../components/ui/GlassButton';
 import toast from 'react-hot-toast';
@@ -13,6 +13,9 @@ export default function SubmissionDetail() {
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  
+  // State for controlling the download selection modal
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   useEffect(() => {
     const fetchResponse = async () => {
@@ -29,11 +32,14 @@ export default function SubmissionDetail() {
     if (responseId) fetchResponse();
   }, [responseId]);
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (isDetailed = false) => {
     try {
       setDownloading(true);
+      setShowDownloadModal(false); // Close modal immediately
+      
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      const res = await fetch(`${API_BASE}/api/reports/download/${responseId}`);
+      // Append detailed flag to the request
+      const res = await fetch(`${API_BASE}/api/reports/download/${responseId}?detailed=${isDetailed}`);
       
       if (!res.ok) throw new Error("Download failed");
 
@@ -194,10 +200,7 @@ export default function SubmissionDetail() {
             {passage}
           </div>
           {content.mcqs && content.mcqs.map((mcq, i) => {
-            // BUG FIX: Intelligently check for both the MongoDB _id AND the array index (0, 1, 2)
             const uAns = userAnswer ? (userAnswer[mcq._id?.toString()] || userAnswer[i?.toString()] || userAnswer[i]) : null;
-            
-            // Safe, case-insensitive string comparison
             const isMcqCorrect = String(uAns || '').trim().toLowerCase() === String(mcq.correctAnswer || '').trim().toLowerCase();
             
             return (
@@ -234,6 +237,54 @@ export default function SubmissionDetail() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6 md:p-12 font-sans relative z-10">
+      
+      {/* NEW: Download Modal */}
+      <AnimatePresence>
+        {showDownloadModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div 
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-md relative"
+              >
+                  <button 
+                      onClick={() => setShowDownloadModal(false)}
+                      className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                  >
+                      <XCircle size={24} />
+                  </button>
+                  <h3 className="text-xl font-bold text-white mb-2">Export Report</h3>
+                  <p className="text-slate-400 text-sm mb-6">Choose the level of detail you want to include in the PDF export.</p>
+                  
+                  <div className="space-y-3">
+                      <button 
+                          onClick={() => handleDownloadPDF(false)}
+                          className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 transition-all text-left"
+                      >
+                          <div>
+                              <span className="block font-semibold text-white">Summary Report</span>
+                              <span className="text-xs text-slate-400 mt-1">Includes scores, integrity checks, and AI feedback.</span>
+                          </div>
+                          <FileText className="text-slate-400 ml-4" />
+                      </button>
+
+                      <button 
+                          onClick={() => handleDownloadPDF(true)}
+                          className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-700 hover:border-emerald-500 hover:bg-emerald-500/10 transition-all text-left"
+                      >
+                          <div>
+                              <span className="block font-semibold text-white">Detailed Report</span>
+                              <span className="text-xs text-slate-400 mt-1">Summary + complete question & answer breakdown.</span>
+                          </div>
+                          <Download className="text-slate-400 ml-4" />
+                      </button>
+                  </div>
+              </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Navigation Header */}
@@ -246,7 +297,7 @@ export default function SubmissionDetail() {
           </button>
           
           <GlassButton 
-            onClick={handleDownloadPDF}
+            onClick={() => setShowDownloadModal(true)} // Opens the modal
             disabled={downloading}
             className="flex items-center gap-2 bg-indigo-600/20 text-indigo-300 border-indigo-500/50 hover:bg-indigo-600/30"
           >
