@@ -33,22 +33,21 @@ export default function FormCard({ form, onDelete }) {
              <button 
               onClick={(e) => {
                 e.stopPropagation();
-                // This appends the query param so your submissions page can filter
-                navigate(`/submissions?formId=${form._id}`);
+                // UPDATED: Now points directly to the specific form's submission page route
+                navigate(`/submissions/${form._id}`);
               }}
               className="p-2 rounded-lg hover:bg-white/10 text-white/20 hover:text-white transition-all"
+              title="View Submissions"
             >
               <Users size={18} />
             </button>
             <button 
-              className="p-2 rounded-lg hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-all z-20 relative"
+              className="p-2 rounded-lg hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-all"
               onClick={(e) => {
                 e.stopPropagation();
-                // Call the onDelete prop passed from DashboardPage
-                if (onDelete) {
-                    onDelete(form._id);
-                }
+                onDelete(form._id);
               }}
+              title="Delete Module"
             >
               <Trash2 size={18} />
             </button>

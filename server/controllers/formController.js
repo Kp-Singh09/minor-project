@@ -42,7 +42,10 @@ export const createForm = async (req, res) => {
 export const getFormById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, userId } = req.body; 
+    // Extract safely from either query or body (GET requests usually use query)
+    const userId = req.query.userId || req.body.userId;
+    const email = req.query.email || req.body.email;
+    const password = req.query.password || req.body.password;
 
     const form = await Form.findById(id)
       .select('+settings.password') 
@@ -50,17 +53,18 @@ export const getFormById = async (req, res) => {
 
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
-    // Creator Bypass
-    if (form.creatorId === userId) {
+    // Creator & Collaborator Bypass (Allows editors/viewers to load the form freely)
+    const isCollaborator = form.collaborators?.some(c => c.email === email);
+    if (form.creatorId === userId || isCollaborator) {
         return res.status(200).json(form);
     }
 
-    // Expiration Check
+    // Expiration Check for Public Users
     if (form.settings?.expiresAt && new Date() > new Date(form.settings.expiresAt)) {
       return res.status(410).json({ message: 'Form expired.', isExpired: true });
     }
 
-    // Password Check
+    // Password Check for Public Users
     if (form.settings?.privacy === 'protected') {
       if (!password || password !== form.settings.password) {
         return res.status(200).json({
@@ -116,10 +120,21 @@ export const deleteForm = async (req, res) => {
 export const getUserForms = async (req, res) => {
     try {
         const { userId } = req.params;
-        // FIX: Added .populate('questions') so the frontend FormCard can read the question type
-        const forms = await Form.find({ creatorId: userId })
+        const email = req.query.email; // Get email from query
+        
+        // Find forms where the user is the creator OR listed as a collaborator
+        const query = {
+            $or: [{ creatorId: userId }]
+        };
+
+        if (email) {
+            query.$or.push({ "collaborators.email": email });
+        }
+
+        const forms = await Form.find(query)
             .populate('questions')
             .sort({ createdAt: -1 });
+            
         res.status(200).json(forms);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching user forms', error });

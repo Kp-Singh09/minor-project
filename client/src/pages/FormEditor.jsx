@@ -35,7 +35,7 @@ import SettingsModal from '../components/FormCreator/SettingsModal';
 import AdvancedShareModal from '../components/FormCreator/AdvancedShareModal';
 
 // --- Draggable Item Component ---
-const DraggableQuestionItem = ({ question, onEdit, onDelete }) => {
+const DraggableQuestionItem = ({ question, onEdit, onDelete, canEditQuestions }) => {
     const controls = useDragControls();
 
     return (
@@ -63,21 +63,23 @@ const DraggableQuestionItem = ({ question, onEdit, onDelete }) => {
                     </p>
                 </div>
                 
-                <div className="flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity items-center">
-                    <div
-                        onPointerDown={(e) => controls.start(e)}
-                        className="cursor-grab active:cursor-grabbing p-2 text-white/40 hover:text-white transition-colors"
-                        title="Drag to reorder"
-                        style={{ touchAction: 'none' }} 
-                    >
-                        <GripVertical size={20} />
-                    </div>
+                {canEditQuestions && (
+                  <div className="flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity items-center">
+                      <div
+                          onPointerDown={(e) => controls.start(e)}
+                          className="cursor-grab active:cursor-grabbing p-2 text-white/40 hover:text-white transition-colors"
+                          title="Drag to reorder"
+                          style={{ touchAction: 'none' }} 
+                      >
+                          <GripVertical size={20} />
+                      </div>
 
-                    <button onClick={() => onEdit(question)} className="text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/20 py-2 px-5 rounded-lg font-medium transition-colors">Edit</button>
-                    <button onClick={() => onDelete(question._id)} className="text-sm bg-red-500/20 text-red-300 hover:bg-red-500/40 border border-red-500/20 py-2 px-5 rounded-lg font-medium flex items-center gap-2 transition-colors">
-                        <Trash2 size={16} /> Delete
-                    </button>
-                </div>
+                      <button onClick={() => onEdit(question)} className="text-sm bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 border border-indigo-500/20 py-2 px-5 rounded-lg font-medium transition-colors">Edit</button>
+                      <button onClick={() => onDelete(question._id)} className="text-sm bg-red-500/20 text-red-300 hover:bg-red-500/40 border border-red-500/20 py-2 px-5 rounded-lg font-medium flex items-center gap-2 transition-colors">
+                          <Trash2 size={16} /> Delete
+                      </button>
+                  </div>
+                )}
             </div>
         </Reorder.Item>
     );
@@ -93,12 +95,12 @@ const FormEditor = () => {
     const [form, setForm] = useState(null);
     const [loading, setLoading] = useState(!isNewForm);
     const [error, setError] = useState(null);
+    const [userRole, setUserRole] = useState('None'); // Creator, Editor, Viewer, None
     
     const [activeBuilder, setActiveBuilder] = useState(null);
     const [editingQuestion, setEditingQuestion] = useState(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [currentTitle, setCurrentTitle] = useState("");
-    const [copied, setCopied] = useState(false);
     
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [teamModalOpen, setTeamModalOpen] = useState(false);
@@ -119,19 +121,42 @@ const FormEditor = () => {
     useEffect(() => {
         const fetchForm = async () => {
             try {
-                const response = await axios.get(`/api/forms/${formId}?userId=${userId}`);
-                setForm(response.data);
-                setCurrentTitle(response.data.title);
-                setTeamList(response.data.collaborators || []);
+                const userEmail = user?.primaryEmailAddress?.emailAddress;
+                // Pass email in the query to verify collaboration access
+                const response = await axios.get(`/api/forms/${formId}?userId=${userId}&email=${encodeURIComponent(userEmail || '')}`);
+                
+                const fetchedForm = response.data;
+                
+                // Security Check: Determine Role
+                let role = 'None';
+                if (fetchedForm.creatorId === userId) {
+                    role = 'Creator';
+                } else if (fetchedForm.collaborators) {
+                    const collab = fetchedForm.collaborators.find(c => c.email === userEmail);
+                    if (collab) role = collab.role; 
+                }
+
+                if (role === 'None') {
+                    toast.error("You do not have permission to view this workspace.");
+                    navigate('/dashboard', { replace: true });
+                    return;
+                }
+
+                setUserRole(role);
+                setForm(fetchedForm);
+                setCurrentTitle(fetchedForm.title);
+                setTeamList(fetchedForm.collaborators || []);
             } catch (err) {
-                setError('Failed to fetch form data.');
+                setError('Failed to fetch form data or access denied.');
                 toast.error("Could not load form");
+                navigate('/dashboard', { replace: true });
             } finally {
                 setLoading(false);
             }
         };
 
         if (isNewForm) {
+            setUserRole('Creator');
             const defaultTitle = 'Untitled Assessment';
             setForm({ 
                 title: defaultTitle, 
@@ -145,9 +170,9 @@ const FormEditor = () => {
         } else {
             fetchForm();
         }
-    }, [formId, isNewForm, userId]);
+    }, [formId, isNewForm, userId, user, navigate]);
 
-    // OPTIMIZATION: Only connect to Socket if teamList has members
+    // Socket Connection
     useEffect(() => {
         if (!formId || isNewForm || !user || teamList.length === 0) return;
 
@@ -217,7 +242,13 @@ const FormEditor = () => {
         };
     }, [formId, isNewForm, user, userId, teamList.length]);
 
+    // --- PERMISSION BOOLS ---
+    const canEditQuestions = userRole === 'Creator' || userRole === 'Editor';
+    const canManageSettings = userRole === 'Creator';
+    const canEditMetadata = userRole === 'Creator';
+
     const handleTitleSave = async () => {
+        if (!canEditMetadata) return;
         if (!hasUnsavedChanges && !isNewForm) {
             setIsEditingTitle(false);
             return;
@@ -254,16 +285,13 @@ const FormEditor = () => {
     const handleSettingsUpdate = async (newSettings) => {
         setForm(prev => ({ ...prev, settings: newSettings }));
         if (!isNewForm) {
-            try {
-                await axios.put(`/api/forms/${formId}`, { settings: newSettings });
-            } catch (err) {
-                console.error("Settings Save Error", err);
-                toast.error("Failed to save settings");
-            }
+            try { await axios.put(`/api/forms/${formId}`, { settings: newSettings }); } 
+            catch (err) { toast.error("Failed to save settings"); }
         }
     };
 
     const handleSaveQuestion = async (questionData) => {
+        if (!canEditQuestions) return;
         try {
             let currentFormId = formId;
 
@@ -281,68 +309,42 @@ const FormEditor = () => {
             if (editingQuestion) {
                 const res = await axios.put(`/api/forms/questions/${editingQuestion._id}`, questionData);
                 savedQuestion = res.data;
-                socketRef.current?.emit("update_question", { 
-                    formId: currentFormId, 
-                    question: savedQuestion, 
-                    userId 
-                });
+                socketRef.current?.emit("update_question", { formId: currentFormId, question: savedQuestion, userId });
             } else {
                 const res = await axios.post(`/api/forms/${currentFormId}/questions`, questionData);
                 savedQuestion = res.data;
-                socketRef.current?.emit("add_question", { 
-                    formId: currentFormId, 
-                    question: savedQuestion, 
-                    userId 
-                });
+                socketRef.current?.emit("add_question", { formId: currentFormId, question: savedQuestion, userId });
             }
             
             const updatedForm = await axios.get(`/api/forms/${currentFormId || formId}`);
             setForm(updatedForm.data);
-
             setActiveBuilder(null);
             setEditingQuestion(null);
             toast.success("Question Saved");
-
-        } catch (err) {
-            toast.error("Error: Could not save the question.");
-            console.error(err);
-        }
+        } catch (err) { toast.error("Error: Could not save the question."); }
     };
 
     const handleDeleteQuestion = async (questionId) => {
+        if (!canEditQuestions) return;
         if (window.confirm('Delete this question?')) {
             try {
                 await axios.delete(`/api/forms/${formId}/questions/${questionId}`);
-                setForm(prev => ({
-                    ...prev,
-                    questions: prev.questions.filter(q => q._id !== questionId)
-                }));
-                
+                setForm(prev => ({ ...prev, questions: prev.questions.filter(q => q._id !== questionId) }));
                 socketRef.current?.emit("delete_question", { formId, questionId, userId });
                 toast.success("Question deleted");
-            } catch (err) {
-                toast.error('Failed to delete.');
-            }
+            } catch (err) { toast.error('Failed to delete.'); }
         }
     };
 
     const handleReorder = async (newOrder) => {
+        if (!canEditQuestions) return;
         setForm(prev => ({ ...prev, questions: newOrder }));
-
         if (!isNewForm) {
             try {
                 const questionIds = newOrder.map(q => q._id);
                 await axios.put(`/api/forms/${formId}`, { questions: questionIds });
-                
-                socketRef.current?.emit("reorder_questions", { 
-                    formId, 
-                    questions: newOrder, 
-                    userId 
-                });
-            } catch (err) {
-                console.error("Reorder error:", err);
-                toast.error("Failed to save new order");
-            }
+                socketRef.current?.emit("reorder_questions", { formId, questions: newOrder, userId });
+            } catch (err) { toast.error("Failed to save new order"); }
         }
     };
 
@@ -352,6 +354,7 @@ const FormEditor = () => {
     };
   
     const handleHeaderImageUpload = async (event) => {
+        if (!canEditMetadata) return;
         const file = event.target.files[0];
         if (!file || isNewForm) return;
         try {
@@ -364,28 +367,26 @@ const FormEditor = () => {
             formData.append('expire', authResponse.data.expire);
             formData.append('token', authResponse.data.token);
             const uploadResponse = await axios.post('https://upload.imagekit.io/api/v1/files/upload', formData);
-            const imageUrl = uploadResponse.data.url;
-            const updateResponse = await axios.put(`/api/forms/${formId}`, { headerImage: imageUrl });
+            const updateResponse = await axios.put(`/api/forms/${formId}`, { headerImage: uploadResponse.data.url });
             setForm(updateResponse.data);
             toast.success("Header updated");
         } catch (err) { toast.error('Failed to upload header.'); }
     };
 
     const handleDeleteForm = async () => {
-        if (isNewForm) return;
+        if (!canManageSettings || isNewForm) return;
         if (window.confirm(`Delete "${form.title}"?`)) {
             try { await axios.delete(`/api/forms/${formId}`); toast.success('Deleted.'); navigate('/dashboard'); } 
             catch (error) { toast.error('Could not delete.'); }
         }
     };
 
-    // Helper to start adding a new question and close the edit view
     const handleAddClick = (type) => {
+        if (!canEditQuestions) return;
         setEditingQuestion(null);
         setActiveBuilder(type);
     };
 
-    // --- RENDER BUILDERS (UPDATED TO TAKE TYPE & DATA EXPLICITLY) ---
     const renderBuilder = (type, initialData) => {
         const onCancel = () => { setActiveBuilder(null); setEditingQuestion(null); };
         const props = { onSave: handleSaveQuestion, onCancel, initialData };
@@ -395,29 +396,24 @@ const FormEditor = () => {
             case 'checkbox': return <CheckboxBuilder {...props} />;
             case 'dropdown': return <DropdownBuilder {...props} />;
             case 'picturechoice': return <PictureChoiceBuilder {...props} />;
-            
             case 'shortanswer': return <ShortAnswerBuilder {...props} />;
             case 'longanswer': return <LongAnswerBuilder {...props} />;
             case 'email': return <EmailBuilder {...props} />;
-            
             case 'temporal': return <TemporalBuilder {...props} />;
             case 'fileupload': return <FileUploadBuilder {...props} />;
-
             case 'comprehension': return <ComprehensionBuilder {...props} />;
             case 'categorize': return <CategorizeBuilder {...props} />;
             case 'cloze': return <ClozeBuilder {...props} />;
             case 'switch': return <SwitchBuilder {...props} />;
-
             case 'heading': return <HeadingBuilder {...props} />;
             case 'paragraph': return <ParagraphBuilder {...props} />;
             case 'banner': return <BannerBuilder {...props} />;
-            
             default: return null;
         }
     }
 
     if (loading) return <div className="h-screen w-full flex items-center justify-center bg-slate-900 text-white font-mono uppercase tracking-widest text-xs">Connecting Neural Interface...</div>;
-    if (error) return <div className="p-8 text-center text-xl text-red-500">{error}</div>;
+    if (error) return null; // Redirect handled in useEffect
     if (!form) return null;
 
     return (
@@ -426,28 +422,9 @@ const FormEditor = () => {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-6xl mx-auto pb-20 pt-10 px-4"
         >
-            <AiPromptModal 
-                isOpen={aiModalOpen}
-                onClose={() => setAiModalOpen(false)}
-                userId={user?.id}
-                username={user?.fullName}
-                onSuccess={handleAiSuccess}
-            />
-
-            <TeamModal 
-                isOpen={teamModalOpen}
-                onClose={() => setTeamModalOpen(false)}
-                formId={formId}
-                collaborators={teamList}
-                onUpdate={(newList) => setTeamList(newList)}
-            />
-
-            <SettingsModal
-                isOpen={settingsModalOpen}
-                onClose={() => setSettingsModalOpen(false)}
-                settings={form.settings}
-                onUpdate={handleSettingsUpdate}
-            />
+            <AiPromptModal isOpen={aiModalOpen} onClose={() => setAiModalOpen(false)} userId={user?.id} username={user?.fullName} onSuccess={handleAiSuccess} />
+            <TeamModal isOpen={teamModalOpen} onClose={() => setTeamModalOpen(false)} formId={formId} collaborators={teamList} onUpdate={(newList) => setTeamList(newList)} />
+            <SettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} settings={form.settings} onUpdate={handleSettingsUpdate} />
 
             {/* Header Card */}
             <div className="bg-white/5 backdrop-blur-lg p-6 rounded-2xl mb-8 border border-white/10 shadow-2xl shadow-black/50 border-t-4 border-t-indigo-500 relative">
@@ -455,34 +432,28 @@ const FormEditor = () => {
                 <div className="absolute top-4 right-4 flex items-center gap-2">
                     {collaborators.length > 0 && (
                         <div className="flex items-center gap-1 bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-500/30">
-                            <Radio size={12} className="animate-pulse" />
-                            {collaborators.length} Live
+                            <Radio size={12} className="animate-pulse" /> {collaborators.length} Live
                         </div>
                     )}
                     
-                    <button 
-                        onClick={() => setSettingsModalOpen(true)}
-                        disabled={isNewForm}
-                        className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
-                        title="Configure Monitoring"
-                    >
-                        <Settings size={12} /> Settings
-                    </button>
-
-                    <button 
-                        onClick={() => setTeamModalOpen(true)}
-                        disabled={isNewForm}
-                        className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
-                    >
-                        <Users size={12} /> Team
-                    </button>
+                    {/* Only Creator can see Settings/Team */}
+                    {canManageSettings && (
+                      <>
+                        <button onClick={() => setSettingsModalOpen(true)} disabled={isNewForm} className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50" title="Configure Monitoring">
+                            <Settings size={12} /> Settings
+                        </button>
+                        <button onClick={() => setTeamModalOpen(true)} disabled={isNewForm} className="flex items-center gap-1 bg-white/10 text-white/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 hover:bg-white/20 transition-colors disabled:opacity-50">
+                            <Users size={12} /> Team
+                        </button>
+                      </>
+                    )}
                 </div>
 
                 {form.headerImage && <img src={form.headerImage} alt="Form Header" className="w-full h-48 object-cover rounded-xl mb-4 border border-white/10" />}
                 
                 <div className="flex justify-between items-start mt-8">
                     <div className="flex-1 mr-4">
-                        {isEditingTitle ? (
+                        {isEditingTitle && canEditMetadata ? (
                             <input
                                 type="text"
                                 value={currentTitle}
@@ -495,41 +466,34 @@ const FormEditor = () => {
                             />
                         ) : (
                             <h1
-                                className="text-4xl font-bold cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-md text-white transition-colors"
-                                onClick={() => setIsEditingTitle(true)}
-                                title="Click to edit title"
+                                className={`text-4xl font-bold p-2 -m-2 rounded-md text-white transition-colors ${canEditMetadata ? 'cursor-pointer hover:bg-white/5' : ''}`}
+                                onClick={() => canEditMetadata && setIsEditingTitle(true)}
+                                title={canEditMetadata ? "Click to edit title" : "Read Only"}
                             >
                                 {currentTitle}
                             </h1>
                         )}
                         <p className="text-white/40 mt-2 px-2 font-mono text-xs uppercase tracking-widest">
-                            {isNewForm ? "Draft Mode" : `ID: ${form._id}`}
+                            {isNewForm ? "Draft Mode" : `Role: ${userRole} | ID: ${form._id}`}
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-3">
-                        <button 
-                            onClick={() => setAiModalOpen(true)}
-                            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-xl shadow-lg hover:shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 font-semibold border border-white/10"
-                        >
-                            <Sparkles size={18} />
-                            AI Generate
-                        </button>
-
-                        <input type="file" ref={fileInputRef} onChange={handleHeaderImageUpload} style={{ display: 'none' }} accept="image/*" />
-                        <button 
-                            onClick={() => fileInputRef.current.click()} 
-                            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-2 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                            disabled={isNewForm}
-                        >
-                            Upload Header
-                        </button>
-                    </div>
+                    {canEditMetadata && (
+                      <div className="flex flex-col gap-3">
+                          <button onClick={() => setAiModalOpen(true)} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-xl shadow-lg hover:shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 font-semibold border border-white/10">
+                              <Sparkles size={18} /> AI Generate
+                          </button>
+                          <input type="file" ref={fileInputRef} onChange={handleHeaderImageUpload} style={{ display: 'none' }} accept="image/*" />
+                          <button onClick={() => fileInputRef.current.click()} disabled={isNewForm} className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-2 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors">
+                              Upload Header
+                          </button>
+                      </div>
+                    )}
                 </div>
             </div>
 
-            {/* Questions List (UPDATED FOR INLINE EDITING) */}
-            <Reorder.Group axis="y" values={form.questions} onReorder={handleReorder} className="space-y-6">
+            {/* Questions List */}
+            <Reorder.Group axis="y" values={form.questions} onReorder={canEditQuestions ? handleReorder : () => {}} className="space-y-6">
                 <AnimatePresence mode="popLayout">
                     {form.questions.map((question) => (
                         editingQuestion && editingQuestion._id === question._id ? (
@@ -546,10 +510,8 @@ const FormEditor = () => {
                             <DraggableQuestionItem 
                                 key={question._id} 
                                 question={question} 
-                                onEdit={(q) => {
-                                    setActiveBuilder(null); // Close new question builder
-                                    setEditingQuestion(q); // Open inline editor
-                                }} 
+                                canEditQuestions={canEditQuestions} // Pass the permission down
+                                onEdit={(q) => { setActiveBuilder(null); setEditingQuestion(q); }} 
                                 onDelete={handleDeleteQuestion} 
                             />
                         )
@@ -557,122 +519,100 @@ const FormEditor = () => {
                 </AnimatePresence>
             </Reorder.Group>
 
-            {/* Builder Selection Grid (UPDATED) */}
-            <div className="mt-10">
-                {activeBuilder ? (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-slate-900/50 backdrop-blur-xl shadow-2xl"
-                    >
-                         {renderBuilder(activeBuilder, null)}
-                    </motion.div>
-                ) : (
-                    <div className="p-8 border-2 border-dashed border-white/20 rounded-2xl bg-white/5 backdrop-blur-sm">
-                        <h3 className="text-2xl font-bold mb-8 text-white tracking-tight text-center">Expand Neural Form</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            {/* Column 1: Choice Modules */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-2">Choice Vectors</h4>
-                                <button onClick={() => handleAddClick('multiplechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Multiple Choice</button>
-                                <button onClick={() => handleAddClick('checkbox')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Checkboxes</button>
-                                <button onClick={() => handleAddClick('dropdown')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Dropdown List</button>
-                                <button onClick={() => handleAddClick('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
-                            </div>
-
-                            {/* Column 2: Data Input */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-xs uppercase tracking-widest text-pink-400 font-bold mb-2">Data Input</h4>
-                                <button onClick={() => handleAddClick('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Text Response</button>
-                                <button onClick={() => handleAddClick('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
-                                <button onClick={() => handleAddClick('temporal')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Temporal Node</button>
-                                <button onClick={() => handleAddClick('fileupload')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Asset Uplink</button>
-                            </div>
-
-                            {/* Column 3: Advanced Cognitive */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2">Cognitive Matrix</h4>
-                                <button onClick={() => handleAddClick('comprehension')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Comprehension</button>
-                                <button onClick={() => handleAddClick('categorize')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Categorize</button>
-                                <button onClick={() => handleAddClick('cloze')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Cloze (Blanks)</button>
-                                <button onClick={() => handleAddClick('switch')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Toggle Switch</button>
-                            </div>
-
-                            {/* Column 4: UI Structure */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2">UI Structure</h4>
-                                <button onClick={() => handleAddClick('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
-                                <button onClick={() => handleAddClick('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
-                                <button onClick={() => handleAddClick('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
-                                
-                                <div className="relative group bg-amber-900/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 cursor-help py-2.5 px-4 transition-all hover:bg-amber-500/10">
-                                    <AlertCircle className="text-amber-500/70 shrink-0" size={16} />
-                                    <span className="text-xs text-amber-500/80 font-mono uppercase tracking-widest font-bold">UI Notice</span>
-                                    
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-4 bg-slate-900 border border-amber-500/30 rounded-xl shadow-[0_10px_40px_-10px_rgba(245,158,11,0.3)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                        <p className="text-[10px] text-amber-400/90 leading-relaxed font-mono uppercase tracking-wide text-center">
-                                            UI modules are optimized for <strong className="text-amber-300">Scroll View</strong>. Adaptive Focus & Chat modes bypass static structure.
-                                        </p>
-                                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-b border-r border-amber-500/30 transform rotate-45"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            {/* Builder Selection Grid - ONLY shown to Editors/Creators */}
+            {canEditQuestions && (
+              <div className="mt-10">
+                  {activeBuilder ? (
+                      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="border border-indigo-500/30 rounded-2xl overflow-hidden bg-slate-900/50 backdrop-blur-xl shadow-2xl">
+                           {renderBuilder(activeBuilder, null)}
+                      </motion.div>
+                  ) : (
+                      <div className="p-8 border-2 border-dashed border-white/20 rounded-2xl bg-white/5 backdrop-blur-sm">
+                          <h3 className="text-2xl font-bold mb-8 text-white tracking-tight text-center">Expand Neural Form</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                              {/* Choice Vectors */}
+                              <div className="flex flex-col gap-3">
+                                  <h4 className="text-xs uppercase tracking-widest text-indigo-400 font-bold mb-2">Choice Vectors</h4>
+                                  <button onClick={() => handleAddClick('multiplechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Multiple Choice</button>
+                                  <button onClick={() => handleAddClick('checkbox')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Checkboxes</button>
+                                  <button onClick={() => handleAddClick('dropdown')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Dropdown List</button>
+                                  <button onClick={() => handleAddClick('picturechoice')} className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 py-2.5 px-4 rounded-xl hover:bg-indigo-500/40 text-left text-sm font-medium transition-all">Picture Choice</button>
+                              </div>
+                              {/* Data Input */}
+                              <div className="flex flex-col gap-3">
+                                  <h4 className="text-xs uppercase tracking-widest text-pink-400 font-bold mb-2">Data Input</h4>
+                                  <button onClick={() => handleAddClick('longanswer')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Text Response</button>
+                                  <button onClick={() => handleAddClick('email')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Email Address</button>
+                                  <button onClick={() => handleAddClick('temporal')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Temporal Node</button>
+                                  <button onClick={() => handleAddClick('fileupload')} className="bg-pink-600/20 text-pink-300 border border-pink-500/30 py-2.5 px-4 rounded-xl hover:bg-pink-500/40 text-left text-sm font-medium transition-all">Asset Uplink</button>
+                              </div>
+                              {/* Cognitive Matrix */}
+                              <div className="flex flex-col gap-3">
+                                  <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2">Cognitive Matrix</h4>
+                                  <button onClick={() => handleAddClick('comprehension')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Comprehension</button>
+                                  <button onClick={() => handleAddClick('categorize')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Categorize</button>
+                                  <button onClick={() => handleAddClick('cloze')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Cloze (Blanks)</button>
+                                  <button onClick={() => handleAddClick('switch')} className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 py-2.5 px-4 rounded-xl hover:bg-emerald-500/40 text-left text-sm font-medium transition-all">Toggle Switch</button>
+                              </div>
+                              {/* UI Structure */}
+                              <div className="flex flex-col gap-3">
+                                  <h4 className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2">UI Structure</h4>
+                                  <button onClick={() => handleAddClick('heading')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Heading</button>
+                                  <button onClick={() => handleAddClick('paragraph')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Paragraph</button>
+                                  <button onClick={() => handleAddClick('banner')} className="bg-amber-600/20 text-amber-300 border border-amber-500/30 py-2.5 px-4 rounded-xl hover:bg-amber-500/40 text-left text-sm font-medium transition-all">Banner Image</button>
+                                  <div className="relative group bg-amber-900/10 border border-amber-500/20 rounded-xl flex items-center justify-center gap-2 cursor-help py-2.5 px-4 transition-all hover:bg-amber-500/10">
+                                      <AlertCircle className="text-amber-500/70 shrink-0" size={16} />
+                                      <span className="text-xs text-amber-500/80 font-mono uppercase tracking-widest font-bold">UI Notice</span>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+              </div>
+            )}
       
-            <AdvancedShareModal 
-                isOpen={advancedShareOpen} 
-                onClose={() => setAdvancedShareOpen(false)} 
-                formId={formId} 
-            />
+            <AdvancedShareModal isOpen={advancedShareOpen} onClose={() => setAdvancedShareOpen(false)} formId={formId} />
 
-            {/* Neural Control Deck Footer */}
+            {/* Footer Action Bar */}
             <div className="mt-16 relative">
                 <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
                 
                 <div className="pt-8 flex flex-col lg:flex-row justify-between items-center gap-8 bg-slate-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 shadow-2xl">
                     
-                    <button
-                        onClick={handleDeleteForm}
-                        disabled={isNewForm}
-                        className="flex items-center gap-2 py-3 px-6 rounded-xl text-red-400 font-semibold bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full lg:w-auto group"
-                    >
-                        <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
-                        Delete Module
-                    </button>
+                    {/* Delete Module - Only Creator */}
+                    <div className="w-full lg:w-auto">
+                      {canManageSettings && (
+                        <button onClick={handleDeleteForm} disabled={isNewForm} className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-red-400 font-semibold bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full lg:w-auto group">
+                            <Trash2 size={18} className="group-hover:scale-110 transition-transform" /> Delete Module
+                        </button>
+                      )}
+                    </div>
 
                     <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto flex-1 justify-end">
                         
+                        {/* Previews - Everyone can see */}
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto bg-white/5 p-2 rounded-2xl border border-white/10">
                             <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold px-3 hidden sm:block">Previews</span>
                             
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <button onClick={handlePreviewScroll} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-500/20 hover:border-emerald-500/40 disabled:opacity-50 transition-all group">
-                                    <LayoutList size={16} className="group-hover:scale-110 transition-transform" />
-                                    <span className="hidden sm:inline">Scroll</span>
+                                    <LayoutList size={16} className="group-hover:scale-110 transition-transform" /> <span className="hidden sm:inline">Scroll</span>
                                 </button>
                                 <button onClick={handlePreviewFocus} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-50 transition-all group">
-                                    <Maximize size={16} className="group-hover:scale-110 transition-transform" />
-                                    <span className="hidden sm:inline">Focus</span>
+                                    <Maximize size={16} className="group-hover:scale-110 transition-transform" /> <span className="hidden sm:inline">Focus</span>
                                 </button>
                                 <button onClick={handlePreviewChat} disabled={isNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-500/10 text-pink-400 border border-pink-500/20 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-pink-500/20 hover:border-pink-500/40 disabled:opacity-50 transition-all group">
-                                    <MessageSquare size={16} className="group-hover:scale-110 transition-transform" />
-                                    <span className="hidden sm:inline">Chat</span>
+                                    <MessageSquare size={16} className="group-hover:scale-110 transition-transform" /> <span className="hidden sm:inline">Chat</span>
                                 </button>
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => setAdvancedShareOpen(true)}
-                            disabled={isNewForm}
-                            className="flex items-center justify-center gap-3 py-4 px-8 rounded-2xl text-white font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-base tracking-wide"
-                        >
-                            <Share2 size={20} />
-                            Access Matrix (Share)
-                        </button>
+                        {/* Share Matrix - Only Creator */}
+                        {canManageSettings && (
+                          <button onClick={() => setAdvancedShareOpen(true)} disabled={isNewForm} className="flex items-center justify-center gap-3 py-4 px-8 rounded-2xl text-white font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-base tracking-wide">
+                              <Share2 size={20} /> Access Matrix (Share)
+                          </button>
+                        )}
                     </div>
                 </div>
             </div>

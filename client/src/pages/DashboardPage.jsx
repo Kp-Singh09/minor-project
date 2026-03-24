@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/clerk-react';
 import { Plus, Loader2, AlertCircle, Layout, Activity, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast'; // Import toast for notifications
+import toast from 'react-hot-toast'; 
 import api from '../api/axiosConfig'; 
 import FormCard from '../components/dashboard/FormCard';
 
@@ -21,7 +21,9 @@ export default function DashboardPage() {
     const fetchUserForms = async () => {
       if (!user) return;
       try {
-        const response = await api.get(`/api/forms/user/${user.id}`);
+        // UPDATED: Pass the email as a query parameter so shared forms show up!
+        const email = encodeURIComponent(user.primaryEmailAddress?.emailAddress || '');
+        const response = await api.get(`/api/forms/user/${user.id}?email=${email}`);
         setForms(response.data);
         setError(null);
       } catch (err) {
@@ -34,16 +36,13 @@ export default function DashboardPage() {
     fetchUserForms();
   }, [user]);
 
-  // NEW: Delete Handler
   const handleDeleteForm = async (formId) => {
-    // Optional: Add a confirmation dialog
     if (!window.confirm("Are you sure you want to delete this form? This action cannot be undone.")) {
       return;
     }
 
     try {
       await api.delete(`/api/forms/${formId}`);
-      // Remove the deleted form from the state
       setForms((prevForms) => prevForms.filter((form) => form._id !== formId));
       toast.success('Form deleted successfully');
     } catch (err) {
@@ -74,18 +73,15 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto pb-24 relative z-50 pt-8">
-      {/* Dashboard Header: Removed redundant welcome text */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
         <div className="flex-1 w-full">
           <div className="flex flex-col md:flex-row md:items-center gap-6">
             
-            {/* Upgraded Repository Status Box */}
             <div className="flex items-center gap-3 text-white/40 font-medium whitespace-nowrap bg-white/5 px-4 py-3 rounded-xl border border-white/10">
               <Activity size={18} className="text-indigo-400" />
               <span>Repository status: <strong className="text-white">{forms.length}</strong> active modules</span>
             </div>
 
-            {/* Neural Search Input Field */}
             <div className="relative w-full max-w-md group">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                 <Search size={16} className="text-white/20 group-focus-within:text-indigo-400 transition-colors" />
@@ -112,7 +108,6 @@ export default function DashboardPage() {
         </motion.button>
       </header>
 
-      {/* Error Alert Box */}
       {error && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }} 
@@ -124,7 +119,6 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Main Content Grid */}
       <AnimatePresence mode='popLayout'>
         {filteredForms.length === 0 ? (
           <motion.div 
@@ -171,7 +165,6 @@ export default function DashboardPage() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* UPDATED: Pass the onDelete prop */}
                 <FormCard form={form} onDelete={handleDeleteForm} />
               </motion.div>
             ))}
