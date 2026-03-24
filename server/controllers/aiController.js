@@ -2,10 +2,12 @@
 import Groq from 'groq-sdk';
 import Form from '../models/Form.js';
 import Question from '../models/Question.js';
-import { createRequire } from 'module'; // 1. Import createRequire
+import fs from 'fs'; 
+import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url); // 2. Construct the require function
-const pdf = require('pdf-parse'); // 3. Require pdf-parse (CommonJS compatible)
+// Safely load the CORRECT pdf-parse package
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 // --- SHARED SYSTEM PROMPT ---
 const getSystemPrompt = () => {
@@ -28,9 +30,9 @@ const getSystemPrompt = () => {
         {
           "type": "Comprehension",
           "content": {
-            "comprehensionPassage": "Short passage text...",
+            "text": "Short passage text...",
             "mcqs": [
-              { "questionText": "Sub-question 1?", "options": ["1", "2"], "correctAnswer": "1" }
+              { "question": "Sub-question 1?", "options": ["1", "2"], "correctAnswer": "1" }
             ]
           }
         },
@@ -47,8 +49,8 @@ const getSystemPrompt = () => {
         {
             "type": "Cloze",
             "content": {
-                "sentence": "The capital of France is Paris.",
-                "blanks": ["Paris"]
+                "passage": "The capital of France is [BLANK].",
+                "options": ["Paris"]
             }
         }
       ]
@@ -65,8 +67,15 @@ const getSystemPrompt = () => {
 // --- HELPER: SAVE TO DB ---
 const saveGeneratedForm = async (aiData, userId, username, res) => {
     try {
+        const title = aiData.title || aiData.form?.title || aiData.quiz?.title || 'AI Generated Assessment';
+        const questionsArray = aiData.questions || aiData.form?.questions || aiData.quiz?.questions || [];
+
+        if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
+            return res.status(500).json({ message: 'AI failed to generate a valid question structure. Please try again.' });
+        }
+
         const newForm = new Form({
-            title: aiData.title || 'AI Generated Assessment',
+            title: title,
             creatorId: userId,
             username: username || 'AI Architect',
             theme: 'Light',
@@ -76,19 +85,16 @@ const saveGeneratedForm = async (aiData, userId, username, res) => {
         const savedForm = await newForm.save();
         const questionIds = [];
 
-        for (const qData of aiData.questions) {
-            // Handle content mapping based on structure
-            // If the AI returns "text" instead of "content.question", we normalize it here
+        for (const qData of questionsArray) {
             let contentPayload = qData.content || {};
             
-            // Fallback normalization if AI drifts from strict structure
             if (!contentPayload.question && qData.text) contentPayload.question = qData.text;
             if (!contentPayload.options && qData.options) contentPayload.options = qData.options;
             if (!contentPayload.correctAnswer && qData.correctAnswer) contentPayload.correctAnswer = qData.correctAnswer;
 
             const newQuestion = new Question({
                 formId: savedForm._id, 
-                type: qData.type,
+                type: qData.type || 'ShortAnswer', 
                 content: contentPayload
             });
             const savedQuestion = await newQuestion.save();
@@ -98,10 +104,14 @@ const saveGeneratedForm = async (aiData, userId, username, res) => {
         savedForm.questions = questionIds;
         await savedForm.save();
 
-        res.status(201).json({ formId: savedForm._id });
+        if (!res.headersSent) {
+            return res.status(201).json({ formId: savedForm._id });
+        }
     } catch (error) {
         console.error("Database Save Error:", error);
-        res.status(500).json({ message: 'Failed to save generated form.', error: error.message });
+        if (!res.headersSent) {
+            return res.status(500).json({ message: 'Failed to save generated form.', error: error.message });
+        }
     }
 };
 
@@ -126,7 +136,9 @@ export const generateFormWithAI = async (req, res) => {
 
   } catch (error) {
       console.error("AI Gen Error:", error);
-      res.status(500).json({ message: 'AI generation failed.', error: error.message });
+      if (!res.headersSent) {
+          res.status(500).json({ message: 'AI generation failed.', error: error.message });
+      }
   }
 };
 
@@ -135,14 +147,23 @@ export const generateFormFromDocument = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    // 1. Extract Text from PDF
-    const dataBuffer = req.file.buffer;
+    // Extract Text from PDF
+    let dataBuffer;
+    if (req.file.buffer) {
+        dataBuffer = req.file.buffer;
+    } else if (req.file.path) {
+        dataBuffer = fs.readFileSync(req.file.path);
+    } else {
+        throw new Error("Unable to locate file data.");
+    }
+    
+    // Parse it using the correct library
     const data = await pdf(dataBuffer);
     
-    // Clean and limit text to fit context window (approx 15k chars for safety)
-    const textContent = data.text.replace(/\n+/g, " ").substring(0, 15000); 
+    // Clean and limit text to fit context window safely
+    const textContent = data.text.replace(/\n+/g, " ").substring(0, 12000); 
 
-    // 2. Feed to AI
+    // Feed to AI
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
         messages: [
@@ -155,13 +176,20 @@ export const generateFormFromDocument = async (req, res) => {
 
     const aiResponse = JSON.parse(completion.choices[0]?.message?.content || "{}");
     
-    // 3. Save
+    // Save
     const { userId, username } = req.body;
     await saveGeneratedForm(aiResponse, userId, username, res);
 
   } catch (error) {
-    console.error("Doc Parsing Error:", error);
-    res.status(500).json({ message: 'Document analysis failed.', error: error.message });
+    console.error("\n=========================================");
+    console.error("🚨 DOC PARSING ERROR DETAILS 🚨");
+    console.error("Message:", error.message);
+    console.error(error);
+    console.error("=========================================\n");
+    
+    if (!res.headersSent) {
+        res.status(500).json({ message: 'Document analysis failed.', error: error.message });
+    }
   }
 };
 
@@ -214,7 +242,7 @@ export const generateQuestionFromImage = async (req, res) => {
           ],
         },
       ],
-      model: "llama-3.2-11b-vision-preview", // Updated vision model identifier if needed, or stick to what works
+      model: "llama-3.2-11b-vision-preview", 
       temperature: 0,
       response_format: { type: "json_object" },
     });
@@ -223,11 +251,12 @@ export const generateQuestionFromImage = async (req, res) => {
     const aiResponse = JSON.parse(content || "{}");
     const questions = aiResponse.questions || (aiResponse.type ? [aiResponse] : []);
     
-    // Normalize structure for frontend if needed, or return as is
     res.status(200).json({ questions });
 
   } catch (error) {
     console.error("Vision API Error:", error);
-    res.status(500).json({ message: 'Failed to process image.', error: error.message });
+    if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to process image.', error: error.message });
+    }
   }
 };
