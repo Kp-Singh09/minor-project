@@ -80,11 +80,17 @@ export const createResponse = async (req, res) => {
       
       if (submittedAnswer.answer !== undefined && submittedAnswer.answer !== null && submittedAnswer.answer !== '') {
         switch (question.type) {
+          
           case 'Comprehension':
             if (qContent.mcqs && qContent.mcqs.length > 0) {
               const pointsPerMcq = marksPerQuestion / qContent.mcqs.length;
-              qContent.mcqs.forEach(mcq => {
-                if (userAnswer[mcq._id?.toString()] === mcq.correctAnswer) {
+              qContent.mcqs.forEach((mcq, index) => {
+                // BUG FIX: Intelligently check for both the MongoDB _id AND the array index (0, 1, 2)
+                // because the frontend Renderers use the index as the key in their state.
+                const userAnsForMcq = userAnswer[mcq._id?.toString()] || userAnswer[index?.toString()] || userAnswer[index];
+                
+                // Safe, case-insensitive string comparison
+                if (String(userAnsForMcq || '').trim().toLowerCase() === String(mcq.correctAnswer || '').trim().toLowerCase()) {
                   questionScore += pointsPerMcq;
                 }
               });
@@ -110,7 +116,6 @@ export const createResponse = async (req, res) => {
             if (correctClozeAnswers.length > 0) {
               const pointsPerBlank = marksPerQuestion / correctClozeAnswers.length;
               for (let i = 0; i < correctClozeAnswers.length; i++) {
-                // Check using index i, which is what the frontend provides (e.g. answer[0])
                 const uAns = String(userAnswer[i] || '').trim().toLowerCase();
                 const cAns = String(correctClozeAnswers[i] || '').trim().toLowerCase();
                 

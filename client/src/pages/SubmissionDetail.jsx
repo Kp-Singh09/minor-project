@@ -187,18 +187,22 @@ export default function SubmissionDetail() {
     }
 
     if (type === 'Comprehension') {
+      const passage = content.comprehensionPassage || content.text || '';
       return (
         <div className="mt-4 space-y-4">
           <div className="p-4 bg-white/5 rounded-lg border border-white/10 text-slate-300 text-sm italic">
-            {content.text}
+            {passage}
           </div>
           {content.mcqs && content.mcqs.map((mcq, i) => {
-            const uAns = userAnswer ? userAnswer[mcq._id] : null;
-            const isMcqCorrect = uAns === mcq.correctAnswer;
+            // BUG FIX: Intelligently check for both the MongoDB _id AND the array index (0, 1, 2)
+            const uAns = userAnswer ? (userAnswer[mcq._id?.toString()] || userAnswer[i?.toString()] || userAnswer[i]) : null;
+            
+            // Safe, case-insensitive string comparison
+            const isMcqCorrect = String(uAns || '').trim().toLowerCase() === String(mcq.correctAnswer || '').trim().toLowerCase();
             
             return (
-              <div key={mcq._id} className="bg-black/20 p-4 rounded-lg border border-white/5 text-sm">
-                <p className="text-white font-medium mb-3">Q{i+1}: {mcq.question}</p>
+              <div key={mcq._id || i} className="bg-black/20 p-4 rounded-lg border border-white/5 text-sm">
+                <p className="text-white font-medium mb-3">Q{i+1}: {mcq.question || mcq.questionText}</p>
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                      <span className="text-slate-400 w-24">Your Answer:</span>

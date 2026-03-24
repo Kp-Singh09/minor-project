@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axiosConfig';
-import { motion } from 'framer-motion';
-import { Loader2, ArrowLeft, Calendar, ChevronRight, User, ShieldAlert, Clock, ArrowUpDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, ArrowLeft, Calendar, ChevronRight, User, ShieldAlert, Clock, ArrowUpDown, ChevronDown, Check } from 'lucide-react';
 
 export default function FormSubmissionsPage() {
   const { formId } = useParams();
@@ -11,8 +11,9 @@ export default function FormSubmissionsPage() {
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // NEW: State for sorting
+  // Sorting States
   const [sortBy, setSortBy] = useState('newest');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const fetchResponses = async () => {
@@ -28,7 +29,7 @@ export default function FormSubmissionsPage() {
     if (formId) fetchResponses();
   }, [formId]);
 
-  // NEW: Derived sorted array based on selected filter
+  // Derived sorted array based on selected filter
   const sortedResponses = [...responses].sort((a, b) => {
     if (sortBy === 'newest') return new Date(b.submittedAt) - new Date(a.submittedAt);
     if (sortBy === 'oldest') return new Date(a.submittedAt) - new Date(b.submittedAt);
@@ -36,6 +37,15 @@ export default function FormSubmissionsPage() {
     if (sortBy === 'lowest') return a.score - b.score;
     return 0;
   });
+
+  const sortOptions = [
+    { id: 'newest', label: 'Newest First' },
+    { id: 'oldest', label: 'Oldest First' },
+    { id: 'highest', label: 'Highest Score' },
+    { id: 'lowest', label: 'Lowest Score' }
+  ];
+
+  const currentSortLabel = sortOptions.find(o => o.id === sortBy)?.label || 'Sort By';
 
   if (loading) return (
     <div className="h-screen w-full flex items-center justify-center bg-transparent relative z-10">
@@ -52,7 +62,7 @@ export default function FormSubmissionsPage() {
         <ArrowLeft size={18} /> Back to Forms
       </button>
 
-      {/* Header with Sorting UI */}
+      {/* Header with Custom Sorting UI */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Collected Responses</h1>
@@ -60,18 +70,48 @@ export default function FormSubmissionsPage() {
         </div>
         
         {responses.length > 0 && (
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2 backdrop-blur-md">
-            <ArrowUpDown size={16} className="text-indigo-400" />
-            <select 
-              value={sortBy} 
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent border-none text-white text-sm font-medium focus:ring-0 cursor-pointer outline-none [&>option]:bg-slate-900"
+          <div className="relative z-20">
+            <button 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 hover:bg-white/10 transition-colors backdrop-blur-md text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="highest">Highest Score</option>
-              <option value="lowest">Lowest Score</option>
-            </select>
+              <ArrowUpDown size={16} className="text-indigo-400" />
+              {currentSortLabel}
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Custom Glassmorphism Dropdown */}
+            <AnimatePresence>
+              {isDropdownOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+                >
+                  <div className="py-1">
+                    {sortOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          setSortBy(opt.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${
+                          sortBy === opt.id 
+                            ? 'bg-indigo-500/10 text-indigo-400 font-medium' 
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        {opt.label}
+                        {sortBy === opt.id && <Check size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
@@ -113,7 +153,6 @@ export default function FormSubmissionsPage() {
               </div>
 
               <div className="flex flex-row items-center gap-6 justify-between md:justify-end border-t border-white/10 md:border-none pt-4 md:pt-0">
-                {/* Integrity Flags Badge */}
                 {sub.integrityFlags && sub.integrityFlags.length > 0 && (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-bold">
                     <ShieldAlert size={14} />

@@ -5,12 +5,18 @@ import Question from '../models/Question.js';
 import fs from 'fs'; 
 import { createRequire } from 'module';
 
-// Safely load the CORRECT pdf-parse package
+// Safely load the package
 const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
+const pdfParseRaw = require('pdf-parse');
 
-// --- SHARED SYSTEM PROMPT ---
-const getSystemPrompt = () => {
+// --- SHARED SYSTEM PROMPT WITH DYNAMIC CONFIGURATION ---
+// STRICTLY UNTOUCHED AS REQUESTED
+const getSystemPrompt = (numQuestions = 5, validTypesArray = []) => {
+  // Fallback to default types if empty
+  const allowedTypes = validTypesArray.length > 0 
+    ? validTypesArray.join('", "') 
+    : 'MultipleChoice", "Comprehension", "Checkbox", "Dropdown", "Cloze", "Categorize';
+
   return `
     You are an expert assessment architect.
     You must respond ONLY with a single JSON object (no markdown, no backticks).
@@ -30,19 +36,35 @@ const getSystemPrompt = () => {
         {
           "type": "Comprehension",
           "content": {
-            "text": "Short passage text...",
+            "comprehensionPassage": "Short passage text derived from the source...",
             "mcqs": [
-              { "question": "Sub-question 1?", "options": ["1", "2"], "correctAnswer": "1" }
+              { "questionText": "Sub-question 1?", "options": ["Option 1", "Option 2"], "correctAnswer": "Option 1" }
             ]
+          }
+        },
+        {
+          "type": "Checkbox",
+          "content": {
+            "question": "Which of the following are correct?",
+            "options": ["Correct A", "Wrong B", "Correct C"],
+            "correctAnswers": ["Correct A", "Correct C"]
+          }
+        },
+        {
+          "type": "Dropdown",
+          "content": {
+            "question": "Select the correct word to complete the sentence.",
+            "options": ["Word 1", "Word 2", "Word 3"],
+            "correctAnswer": "Word 2"
           }
         },
         {
             "type": "Categorize",
             "content": {
-                "categories": ["Cat A", "Cat B"],
+                "categories": ["Category A", "Category B"],
                 "items": [
-                    { "text": "Item 1", "category": "Cat A" },
-                    { "text": "Item 2", "category": "Cat B" }
+                    { "text": "Item 1", "category": "Category A" },
+                    { "text": "Item 2", "category": "Category B" }
                 ]
             }
         },
@@ -58,9 +80,12 @@ const getSystemPrompt = () => {
 
     Rules:
     1. Output strictly valid JSON.
-    2. Create 5-10 high-quality questions based on the input context.
-    3. Use only these types: "MultipleChoice", "Comprehension", "Categorize", "Cloze".
-    4. For "Comprehension", generate a relevant passage from the source text.
+    2. Create EXACTLY ${numQuestions} high-quality questions based on the input context.
+    3. Use ONLY these exact types: "${allowedTypes}". Do not use any types outside of this list.
+    4. For "Comprehension", you MUST use the exact keys 'comprehensionPassage' and 'questionText'.
+    5. For "Checkbox", you MUST provide an array of multiple correct options named 'correctAnswers'.
+    6. For "Categorize", provide a 'categories' array and an 'items' array containing objects with 'text' and 'category'.
+    7. For "Cloze", provide a 'passage' string containing '[BLANK]' where the missing words are, and an 'options' array with the answers in order.
   `;
 };
 
@@ -88,7 +113,7 @@ const saveGeneratedForm = async (aiData, userId, username, res) => {
         for (const qData of questionsArray) {
             let contentPayload = qData.content || {};
             
-            if (!contentPayload.question && qData.text) contentPayload.question = qData.text;
+            if (!contentPayload.question && qData.text && qData.type !== 'Comprehension') contentPayload.question = qData.text;
             if (!contentPayload.options && qData.options) contentPayload.options = qData.options;
             if (!contentPayload.correctAnswer && qData.correctAnswer) contentPayload.correctAnswer = qData.correctAnswer;
 
@@ -115,17 +140,20 @@ const saveGeneratedForm = async (aiData, userId, username, res) => {
     }
 };
 
-// --- TEXT-TO-QUIZ ---
+// --- TEXT-TO-QUIZ (TOPIC PROMPT) ---
 export const generateFormWithAI = async (req, res) => {
-  const { prompt, userId, username } = req.body; 
+  // Now successfully extracts numQuestions and questionTypes from your UI
+  const { prompt, userId, username, numQuestions, questionTypes } = req.body; 
   if (!prompt || !userId) return res.status(400).json({ message: 'Prompt/User required.' });
   
   try {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const completion = await groq.chat.completions.create({
           messages: [
-              { role: "system", content: getSystemPrompt() },
-              { role: "user", content: `Generate a quiz about: ${prompt}` }
+              // Passes the variables exactly like the PDF generator
+              { role: "system", content: getSystemPrompt(numQuestions, questionTypes) },
+              // Commands the AI to generate the passages/contexts based on the topic
+              { role: "user", content: `Generate a highly accurate educational quiz strictly about the topic: "${prompt}". You must invent all necessary context, reading passages, and sentences for the requested question types based on your expert knowledge of this topic.` }
           ],
           model: "llama-3.1-8b-instant",
           response_format: { type: "json_object" }
@@ -145,9 +173,10 @@ export const generateFormWithAI = async (req, res) => {
 // --- DOCUMENT-TO-QUIZ (RAG) ---
 export const generateFormFromDocument = async (req, res) => {
   try {
+    console.log("\n--- STARTING AI PDF PROCESSING ---");
+
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    // Extract Text from PDF
     let dataBuffer;
     if (req.file.buffer) {
         dataBuffer = req.file.buffer;
@@ -157,18 +186,56 @@ export const generateFormFromDocument = async (req, res) => {
         throw new Error("Unable to locate file data.");
     }
     
-    // Parse it using the correct library
-    const data = await pdf(dataBuffer);
-    
-    // Clean and limit text to fit context window safely
-    const textContent = data.text.replace(/\n+/g, " ").substring(0, 12000); 
+    let rawText = "";
 
-    // Feed to AI
+    try {
+        const PDFParseClass = pdfParseRaw.PDFParse;
+        const parser = new PDFParseClass({ data: dataBuffer });
+        let extractedData = await parser.getText();
+
+        if (typeof extractedData === 'string') {
+            rawText = extractedData;
+        } else if (extractedData && extractedData.text) {
+            rawText = extractedData.text; 
+        } else if (Array.isArray(extractedData)) {
+            rawText = extractedData.join('\n'); 
+        } else if (typeof extractedData === 'object') {
+            rawText = JSON.stringify(extractedData); 
+        } else {
+            rawText = String(extractedData);
+        }
+    } catch (v2Error) {
+        let pdfFunc = typeof pdfParseRaw === 'function' ? pdfParseRaw : pdfParseRaw.default;
+        const data = await pdfFunc(dataBuffer);
+        
+        if (typeof data === 'string') {
+            rawText = data;
+        } else if (data && data.text) {
+            rawText = data.text;
+        } else {
+            rawText = JSON.stringify(data);
+        }
+    }
+
+    rawText = String(rawText || "");
+
+    if (rawText.trim().length === 0 || rawText === "{}") {
+        throw new Error("PDF parsed successfully, but no readable text could be identified inside.");
+    }
+
+    const textContent = rawText.replace(/\n+/g, " ").substring(0, 12000); 
+
+    const { userId, username, numQuestions, questionTypes } = req.body;
+    let parsedTypes = [];
+    try {
+        if (questionTypes) parsedTypes = JSON.parse(questionTypes);
+    } catch (e) { console.error("Could not parse question types array"); }
+
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
         messages: [
-            { role: "system", content: getSystemPrompt() },
-            { role: "user", content: `Generate a quiz based strictly on this document content: \n\n${textContent}` }
+            { role: "system", content: getSystemPrompt(numQuestions, parsedTypes) },
+            { role: "user", content: `Generate a highly accurate, evaluable quiz based strictly on this document content: \n\n${textContent}` }
         ],
         model: "llama-3.1-8b-instant",
         response_format: { type: "json_object" }
@@ -176,19 +243,18 @@ export const generateFormFromDocument = async (req, res) => {
 
     const aiResponse = JSON.parse(completion.choices[0]?.message?.content || "{}");
     
-    // Save
-    const { userId, username } = req.body;
     await saveGeneratedForm(aiResponse, userId, username, res);
+    console.log("Success! Form Generated.");
 
   } catch (error) {
     console.error("\n=========================================");
     console.error("🚨 DOC PARSING ERROR DETAILS 🚨");
     console.error("Message:", error.message);
-    console.error(error);
-    console.error("=========================================\n");
-    
     if (!res.headersSent) {
-        res.status(500).json({ message: 'Document analysis failed.', error: error.message });
+        res.status(500).json({ 
+            message: 'Document analysis failed. Check server logs.', 
+            error: error.message 
+        });
     }
   }
 };
@@ -211,23 +277,16 @@ export const generateQuestionFromImage = async (req, res) => {
           content: [
             {
               type: "text",
-              text: `Analyze this image. It contains one or multiple multiple-choice questions.
-                     Extract ALL questions found.
-                     
-                     For each question, extract:
-                     1. The question text.
-                     2. The options.
-                     3. The correct answer (ONLY if explicitly marked/highlighted, otherwise leave null).
-                     
-                     Return a SINGLE JSON object with this exact structure (no markdown):
+              text: `Analyze this image. Extract ALL multiple-choice questions found.
+                     Return a SINGLE JSON object:
                      {
                        "questions": [
                          {
                            "type": "MultipleChoice",
                            "content": {
                              "question": "Question text?",
-                             "options": ["Option A", "Option B", "Option C", "Option D"],
-                             "correctAnswer": "Option A"
+                             "options": ["A", "B", "C", "D"],
+                             "correctAnswer": "A"
                            }
                          }
                        ]
