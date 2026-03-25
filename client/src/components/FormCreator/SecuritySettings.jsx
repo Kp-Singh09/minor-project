@@ -38,8 +38,10 @@ const SecuritySettings = ({ settings, onUpdate, theme }) => {
       {/* 1. Privacy Access */}
       <div>
         <label className={`block font-semibold mb-3 ${currentTheme.text}`}>Access Control</label>
-        <div className="grid grid-cols-3 gap-3">
-          {['public', 'private', 'protected'].map((type) => (
+        {/* UPDATED: Changed grid-cols-3 to grid-cols-2 */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* UPDATED: Removed 'private' from the array */}
+          {['public', 'protected'].map((type) => (
             <button
               key={type}
               onClick={() => handleChange('privacy', type)}
@@ -57,7 +59,7 @@ const SecuritySettings = ({ settings, onUpdate, theme }) => {
 
       {/* Password Field (Conditional) */}
       {localSettings.privacy === 'protected' && (
-        <div className="animate-fadeIn bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
+        <div className="animate-fadeIn bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl mt-3">
           <label className={`font-semibold mb-2 flex items-center gap-2 ${currentTheme.text}`}>
             <Lock size={16} className="text-amber-500" /> Assessment Password
           </label>
